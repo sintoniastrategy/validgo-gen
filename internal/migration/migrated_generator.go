@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"go/ast"
+	"go/format"
+	"go/token"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -64,7 +67,7 @@ func (mg *MigratedGenerator) GenerateWithMigration(ctx context.Context) error {
 			return errors.Wrap(err, op)
 		}
 
-		err = mg.WriteOutFiles()
+		err = mg.WriteOutFilesWithMigration()
 		if err != nil {
 			return errors.Wrap(err, op)
 		}
@@ -166,6 +169,47 @@ func (mg *MigratedGenerator) ProcessSchemasWithMigration(schemas map[string]*ope
 	return nil
 }
 
+// WriteOutFilesWithMigration writes the generated files using the new AST builder
+func (mg *MigratedGenerator) WriteOutFilesWithMigration() error {
+	const op = "migration.MigratedGenerator.WriteOutFilesWithMigration"
+
+	// Create output directory
+	handlersPath := mg.Opts.DirPrefix + "/generated/" + mg.PackageName
+	schemasPath := handlersPath + "/" + mg.GetCurrentModelsPackage()
+
+	// Create directories
+	err := os.MkdirAll(schemasPath, 0755)
+	if err != nil {
+		return errors.Wrap(err, op)
+	}
+
+	err = os.MkdirAll(handlersPath, 0755)
+	if err != nil {
+		return errors.Wrap(err, op)
+	}
+
+	// Create output files
+	schemasOutput, err := os.Create(schemasPath + "/models.go")
+	if err != nil {
+		return errors.Wrap(err, op)
+	}
+	defer schemasOutput.Close()
+
+	handlersOutput, err := os.Create(handlersPath + "/handlers.go")
+	if err != nil {
+		return errors.Wrap(err, op)
+	}
+	defer handlersOutput.Close()
+
+	// Write using the new AST builder
+	err = mg.WriteToOutputWithMigration(schemasOutput, handlersOutput)
+	if err != nil {
+		return errors.Wrap(err, op)
+	}
+
+	return nil
+}
+
 // WriteToOutputWithMigration writes the generated code using the new AST builder
 func (mg *MigratedGenerator) WriteToOutputWithMigration(modelsOutput io.Writer, handlersOutput io.Writer) error {
 	const op = "migration.MigratedGenerator.WriteToOutputWithMigration"
@@ -198,9 +242,16 @@ func (mg *MigratedGenerator) WriteToOutputWithMigration(modelsOutput io.Writer, 
 
 // formatASTFile formats an AST file to Go source code
 func (mg *MigratedGenerator) formatASTFile(file *ast.File) ([]byte, error) {
-	// This is a simplified implementation
-	// In a real implementation, you'd use go/format to format the AST
-	return []byte(fmt.Sprintf("package %s\n\n// Generated code using AST builder\n", file.Name.Name)), nil
+	// Use go/format to properly format the AST
+	var buf strings.Builder
+	fset := token.NewFileSet()
+
+	err := format.Node(&buf, fset, file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to format AST: %w", err)
+	}
+
+	return []byte(buf.String()), nil
 }
 
 // GetASTBuilder returns the underlying AST builder
