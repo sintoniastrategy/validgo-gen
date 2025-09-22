@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/token"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -240,6 +241,27 @@ func (b *Builder) str(value string) *ast.BasicLit {
 	}
 }
 
+// Helper function to create an integer literal
+func (b *Builder) int(value int) *ast.BasicLit {
+	return &ast.BasicLit{
+		Kind:  token.INT,
+		Value: strconv.Itoa(value),
+	}
+}
+
+// Helper function to create a boolean literal
+func (b *Builder) bool(value bool) *ast.Ident {
+	if value {
+		return ast.NewIdent("true")
+	}
+	return ast.NewIdent("false")
+}
+
+// Helper function to create a nil literal
+func (b *Builder) nil() *ast.Ident {
+	return ast.NewIdent("nil")
+}
+
 // Helper function to create an identifier
 func (b *Builder) ident(name string) *ast.Ident {
 	return ast.NewIdent(name)
@@ -275,5 +297,131 @@ func (b *Builder) unary(op token.Token, x ast.Expr) *ast.UnaryExpr {
 	return &ast.UnaryExpr{
 		Op: op,
 		X:  x,
+	}
+}
+
+// Public Expression Methods
+
+// Call creates a function call expression
+func (b *Builder) Call(receiver, method string, args ...ast.Expr) ast.Expr {
+	var fun ast.Expr
+	if receiver != "" {
+		fun = b.selector(b.ident(receiver), method)
+	} else {
+		fun = b.ident(method)
+	}
+	return b.call(fun, args...)
+}
+
+// Select creates a selector expression (receiver.field)
+func (b *Builder) Select(receiver, field string) ast.Expr {
+	return b.selector(b.ident(receiver), field)
+}
+
+// Ident creates an identifier expression
+func (b *Builder) Ident(name string) ast.Expr {
+	return b.ident(name)
+}
+
+// String creates a string literal expression
+func (b *Builder) String(value string) ast.Expr {
+	return b.str(value)
+}
+
+// Int creates an integer literal expression
+func (b *Builder) Int(value int) ast.Expr {
+	return b.int(value)
+}
+
+// Bool creates a boolean literal expression
+func (b *Builder) Bool(value bool) ast.Expr {
+	return b.bool(value)
+}
+
+// Nil creates a nil literal expression
+func (b *Builder) Nil() ast.Expr {
+	return b.nil()
+}
+
+// AddressOf creates an address-of expression (&expr)
+func (b *Builder) AddressOf(expr ast.Expr) ast.Expr {
+	return b.unary(token.AND, expr)
+}
+
+// Deref creates a dereference expression (*expr)
+func (b *Builder) Deref(expr ast.Expr) ast.Expr {
+	return b.unary(token.MUL, expr)
+}
+
+// Public Statement Methods
+
+// DeclareVar creates a variable declaration statement
+func (b *Builder) DeclareVar(name, typeName string, value ast.Expr) ast.Stmt {
+	spec := &ast.ValueSpec{
+		Names: []*ast.Ident{b.ident(name)},
+		Type:  b.ident(typeName),
+	}
+
+	if value != nil {
+		spec.Values = []ast.Expr{value}
+	}
+
+	return &ast.DeclStmt{
+		Decl: &ast.GenDecl{
+			Tok:   token.VAR,
+			Specs: []ast.Spec{spec},
+		},
+	}
+}
+
+// Assign creates an assignment statement
+func (b *Builder) Assign(lhs, rhs ast.Expr) ast.Stmt {
+	return &ast.AssignStmt{
+		Lhs: []ast.Expr{lhs},
+		Tok: token.ASSIGN,
+		Rhs: []ast.Expr{rhs},
+	}
+}
+
+// If creates an if statement
+func (b *Builder) If(cond ast.Expr, body []ast.Stmt) ast.Stmt {
+	return &ast.IfStmt{
+		Cond: cond,
+		Body: &ast.BlockStmt{List: body},
+	}
+}
+
+// IfElse creates an if-else statement
+func (b *Builder) IfElse(cond ast.Expr, ifBody, elseBody []ast.Stmt) ast.Stmt {
+	stmt := &ast.IfStmt{
+		Cond: cond,
+		Body: &ast.BlockStmt{List: ifBody},
+	}
+
+	if len(elseBody) > 0 {
+		stmt.Else = &ast.BlockStmt{List: elseBody}
+	}
+
+	return stmt
+}
+
+// Return creates a return statement
+func (b *Builder) Return(values ...ast.Expr) ast.Stmt {
+	return &ast.ReturnStmt{
+		Results: values,
+	}
+}
+
+// CallStmt creates a call statement
+func (b *Builder) CallStmt(receiver, method string, args ...ast.Expr) ast.Stmt {
+	var fun ast.Expr
+	if receiver != "" {
+		fun = b.selector(b.ident(receiver), method)
+	} else {
+		fun = b.ident(method)
+	}
+
+	return &ast.ExprStmt{
+		X: b.call(fun, args...),
 	}
 }
