@@ -7,8 +7,8 @@ import (
 )
 
 type ExternalObject struct {
-	Field2 string `json:"field2,omitempty"`
 	Field1 string `json:"field1,omitempty"`
+	Field2 string `json:"field2,omitempty"`
 }
 type ExternalRef string
 type ExternalRef2 struct {

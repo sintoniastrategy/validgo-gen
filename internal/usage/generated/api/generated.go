@@ -8,13 +8,13 @@ import (
 )
 
 type ComplexObjectForDive struct {
+	Arrayobjectsrequired []string `json:"array_objects_required"`
+	Arraystringsoptional []string `json:"array_strings_optional,omitempty"`
+	Arraystringsrequired []string `json:"array_strings_required"`
 	Arraysofarrays       []string `json:"arrays_of_arrays,omitempty"`
 	Objectfieldoptional  string   `json:"object_field_optional,omitempty"`
 	Objectfieldrequired  string   `json:"object_field_required"`
 	Arrayobjectsoptional []string `json:"array_objects_optional,omitempty"`
-	Arrayobjectsrequired []string `json:"array_objects_required"`
-	Arraystringsoptional []string `json:"array_strings_optional,omitempty"`
-	Arraystringsrequired []string `json:"array_strings_required"`
 }
 type Handler struct {
 	handler HandlerInterface
