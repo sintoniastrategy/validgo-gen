@@ -105,8 +105,9 @@ func (s *SchemaBuilder) BuildField(field generator.SchemaField) *ast.Field {
 	// Build tags
 	tags := s.buildTags(field)
 
-	// Create field
-	astField := typeBuilder.Field(field.Name, typeExpr, tags)
+	// Create field with valid Go identifier
+	goFieldName := generator.FormatGoLikeIdentifier(field.Name)
+	astField := typeBuilder.Field(goFieldName, typeExpr, tags)
 
 	return astField
 }

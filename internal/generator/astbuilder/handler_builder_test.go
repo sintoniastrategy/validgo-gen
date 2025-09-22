@@ -228,10 +228,10 @@ func TestHandlerBuilder_AddRoute(t *testing.T) {
 
 	handlerBuilder.AddRoute("GET", "/users/{id}", "GetUser")
 
-	// Check that declaration was added
-	decls := builder.decls
-	if len(decls) == 0 {
-		t.Error("Expected routes function declaration to be added")
+	// Check that statement was added
+	stmts := builder.stmts
+	if len(stmts) == 0 {
+		t.Error("Expected route statement to be added")
 	}
 
 	// Check that chi import was added

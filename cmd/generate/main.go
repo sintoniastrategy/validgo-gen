@@ -38,8 +38,9 @@ func main() {
 }
 
 func processYAMLFile(yamlFile string, opts *options.Options) error {
-	// Load OpenAPI spec
+	// Load OpenAPI spec with external references enabled
 	loader := openapi3.NewLoader()
+	loader.IsExternalRefsAllowed = true
 	spec, err := loader.LoadFromFile(yamlFile)
 	if err != nil {
 		return err
@@ -56,18 +57,13 @@ func processYAMLFile(yamlFile string, opts *options.Options) error {
 	}
 	builder := astbuilder.NewBuilder(config)
 
-	// Add standard imports
-	builder.AddImport("net/http")
-	builder.AddImport("github.com/go-chi/chi/v5")
-	builder.AddImport("github.com/go-playground/validator/v10")
-
 	// Generate schemas
 	err = generateSchemas(spec, builder)
 	if err != nil {
 		return err
 	}
 
-	// Generate handlers
+	// Generate handlers (this will add necessary imports)
 	err = generateHandlers(spec, builder)
 	if err != nil {
 		return err

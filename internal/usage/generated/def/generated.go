@@ -1,15 +1,17 @@
-package testapi
+package def
 
 import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
-	"net/http"
 )
 
-type User struct {
-	Name  string `json:"name"`
-	Email string `json:"email" validate:"email"`
-	Id    int    `json:"id"`
+type ExternalRef string
+type ExternalRef2 struct {
+	Subfield1 string `json:"subfield1,omitempty"`
+}
+type ExternalObject struct {
+	Field1 string `json:"field1,omitempty"`
+	Field2 string `json:"field2,omitempty"`
 }
 type Handler struct {
 	validator *validator.Validate
@@ -18,9 +20,5 @@ type Handler struct {
 func NewHandler(validator *validator.Validate) *Handler {
 	return &Handler{validator: validator}
 }
-func GetUsers(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(200)
-}
 func AddRoutes(h *Handler, r *chi.Mux) {
-	r.Get("/users", http.HandlerFunc(GetUsers))
 }
