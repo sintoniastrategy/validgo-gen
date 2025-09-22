@@ -6,14 +6,14 @@ import (
 	"github.com/jolfzverb/codegen/internal/usage/generated/api/apimodels"
 )
 
-type ExternalRef2 struct {
-	Subfield1 string `json:"subfield1,omitempty"`
-}
 type ExternalObject struct {
 	Field1 string `json:"field1,omitempty"`
 	Field2 string `json:"field2,omitempty"`
 }
 type ExternalRef string
+type ExternalRef2 struct {
+	Subfield1 string `json:"subfield1,omitempty"`
+}
 type Handler struct {
 	handler HandlerInterface
 }

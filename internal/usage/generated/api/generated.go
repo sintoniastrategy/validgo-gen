@@ -30,7 +30,7 @@ func NewHandler(handler HandlerInterface) *Handler {
 }
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	var param string = chi.URLParam(r, "param")
-	var count string = r.URL.Query.Get("count")
+	var count string = r.URL.Query().Get("count")
 	var idempotencyKey string = r.Header.Get("Idempotency-Key")
 	var body apimodels.RequestBody
 	var err error
