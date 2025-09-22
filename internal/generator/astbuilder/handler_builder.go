@@ -88,9 +88,11 @@ func (h *HandlerBuilder) BuildConstructor() error {
 	// Create constructor body
 	body := []ast.Stmt{
 		stmtBuilder.Return(
-			exprBuilder.CompositeLitWithType(
-				exprBuilder.Star(exprBuilder.Ident("Handler")),
-				exprBuilder.KeyValue(exprBuilder.String("validator"), exprBuilder.Ident("validator")),
+			exprBuilder.AddressOf(
+				exprBuilder.CompositeLitWithType(
+					exprBuilder.Ident("Handler"),
+					exprBuilder.KeyValue(exprBuilder.Ident("validator"), exprBuilder.Ident("validator")),
+				),
 			),
 		),
 	}
@@ -151,10 +153,11 @@ func (h *HandlerBuilder) BuildRoutesFunction() error {
 		funcBuilder.Param("r", "*chi.Mux"),
 	}
 
-	// Create routes function body
-	body := []ast.Stmt{
-		// Add routes here - this is a placeholder
-		// Routes will be added here
+	// Create routes function body - include any statements that were added
+	body := h.builder.GetStatements()
+	if len(body) == 0 {
+		// If no statements were added, create an empty body
+		body = []ast.Stmt{}
 	}
 
 	// Create routes function declaration
@@ -205,34 +208,24 @@ func (h *HandlerBuilder) AddInterfaceMethod(name string, params, returns []Field
 
 // AddRoute adds a route to the routes function
 func (h *HandlerBuilder) AddRoute(method, path, handlerName string) *HandlerBuilder {
-	// This is a simplified version - in practice, you'd need to track the current routes function
-	// For now, we'll just create a new routes function with the route
-	funcBuilder := NewFunctionBuilder(h.builder)
+	// For now, we'll just add the route as a statement to be included in the routes function
+	// In a more sophisticated implementation, we'd track and modify the existing routes function
 	exprBuilder := NewExpressionBuilder(h.builder)
 	stmtBuilder := NewStatementBuilder(h.builder)
 
-	// Create routes function parameters
-	params := []*ast.Field{
-		funcBuilder.Param("h", "*Handler"),
-		funcBuilder.Param("r", "*chi.Mux"),
-	}
-
-	// Create routes function body with the route
-	body := []ast.Stmt{
-		stmtBuilder.Assign(
-			exprBuilder.MethodCall(
-				exprBuilder.Ident("r"),
-				strings.ToUpper(method),
-				exprBuilder.String(path),
-				exprBuilder.Ident(handlerName),
-			),
-			exprBuilder.Nil(),
+	// Create route statement with proper handler function
+	routeStmt := stmtBuilder.MethodCallStmt(
+		exprBuilder.Ident("r"),
+		strings.Title(strings.ToLower(method)),
+		exprBuilder.String(path),
+		exprBuilder.Call(
+			exprBuilder.Ident("http.HandlerFunc"),
+			exprBuilder.Ident(handlerName),
 		),
-	}
+	)
 
-	// Create routes function declaration
-	routesDecl := funcBuilder.Function("AddRoutes", params, nil, body)
-	h.builder.AddDeclaration(routesDecl)
+	// Add the route statement to the builder
+	h.builder.AddStatement(routeStmt)
 
 	// Add chi import
 	h.builder.AddImport("github.com/go-chi/chi/v5")
@@ -300,12 +293,7 @@ func (h *HandlerBuilder) BuildFromOpenAPI(spec *openapi3.T) error {
 		return fmt.Errorf("failed to build constructor: %w", err)
 	}
 
-	// Build routes function
-	if err := h.BuildRoutesFunction(); err != nil {
-		return fmt.Errorf("failed to build routes function: %w", err)
-	}
-
-	// Process paths and operations
+	// Process paths and operations first to collect routes
 	if spec.Paths != nil {
 		paths := spec.Paths.Map()
 		for path, pathItem := range paths {
@@ -333,6 +321,11 @@ func (h *HandlerBuilder) BuildFromOpenAPI(spec *openapi3.T) error {
 		}
 	}
 
+	// Build routes function after all routes have been added
+	if err := h.BuildRoutesFunction(); err != nil {
+		return fmt.Errorf("failed to build routes function: %w", err)
+	}
+
 	return nil
 }
 
@@ -343,9 +336,8 @@ func (h *HandlerBuilder) buildHandlerMethod(operation *openapi3.Operation, metho
 	exprBuilder := NewExpressionBuilder(h.builder)
 	stmtBuilder := NewStatementBuilder(h.builder)
 
-	// Create method parameters
+	// Create method parameters - use standard http.HandlerFunc signature
 	params := []*ast.Field{
-		funcBuilder.Param("h", "*Handler"),
 		funcBuilder.Param("w", "http.ResponseWriter"),
 		funcBuilder.Param("r", "*http.Request"),
 	}
@@ -354,13 +346,10 @@ func (h *HandlerBuilder) buildHandlerMethod(operation *openapi3.Operation, metho
 	body := []ast.Stmt{
 		// Add method implementation here
 		// Implementation for methodName
-		stmtBuilder.Assign(
-			exprBuilder.MethodCall(
-				exprBuilder.Ident("w"),
-				"WriteHeader",
-				exprBuilder.Ident("200"),
-			),
-			exprBuilder.Nil(),
+		stmtBuilder.MethodCallStmt(
+			exprBuilder.Ident("w"),
+			"WriteHeader",
+			exprBuilder.Int(200),
 		),
 	}
 

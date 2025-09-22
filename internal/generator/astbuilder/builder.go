@@ -80,6 +80,11 @@ func (b *Builder) GetConfig() BuilderConfig {
 	return b.config
 }
 
+// GetStatements returns the current statements
+func (b *Builder) GetStatements() []ast.Stmt {
+	return b.stmts
+}
+
 // Clear clears all statements and declarations from the builder
 func (b *Builder) Clear() *Builder {
 	b.stmts = b.stmts[:0]
