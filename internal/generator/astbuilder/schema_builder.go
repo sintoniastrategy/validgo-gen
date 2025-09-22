@@ -95,6 +95,11 @@ func (s *SchemaBuilder) BuildField(field generator.SchemaField) *ast.Field {
 	goType := s.getGoType(field.Type)
 	var typeExpr ast.Expr
 
+	// Add time import if using time.Time
+	if goType == "time.Time" {
+		s.builder.AddImport("time")
+	}
+
 	// Handle pointer types for optional fields
 	if !field.Required && s.config.UsePointers {
 		typeExpr = exprBuilder.Star(exprBuilder.Ident(goType))
@@ -223,7 +228,7 @@ func (s *SchemaBuilder) buildArraySchema(name string, schema *openapi3.SchemaRef
 	// Get element type
 	elementType := "string" // Default
 	if schema.Value.Items != nil && schema.Value.Items.Value != nil {
-		elementType = s.getOpenAPITypeAsGo(schema.Value.Items.Value.Type)
+		elementType = s.getOpenAPITypeAsGo(schema.Value.Items.Value.Type, schema.Value.Items.Value.Format)
 	}
 
 	// Create slice alias
@@ -253,7 +258,7 @@ func (s *SchemaBuilder) buildBooleanSchema(name string, schema *openapi3.SchemaR
 func (s *SchemaBuilder) createFieldFromOpenAPI(name string, schema *openapi3.SchemaRef, required []string) generator.SchemaField {
 	field := generator.SchemaField{
 		Name:     s.toPascalCase(name),
-		Type:     s.getOpenAPITypeAsGo(schema.Value.Type),
+		Type:     s.getOpenAPITypeAsGo(schema.Value.Type, schema.Value.Format),
 		TagJSON:  []string{name},
 		Required: s.isFieldRequired(name, required),
 	}
@@ -265,13 +270,17 @@ func (s *SchemaBuilder) createFieldFromOpenAPI(name string, schema *openapi3.Sch
 	return field
 }
 
-func (s *SchemaBuilder) getOpenAPITypeAsGo(openapiType *openapi3.Types) string {
+func (s *SchemaBuilder) getOpenAPITypeAsGo(openapiType *openapi3.Types, format string) string {
 	if openapiType == nil {
 		return "string"
 	}
 
 	switch {
 	case openapiType.Permits(openapi3.TypeString):
+		// Check for date-time format
+		if format == "date-time" {
+			return "time.Time"
+		}
 		return "string"
 	case openapiType.Permits(openapi3.TypeInteger):
 		return "int"

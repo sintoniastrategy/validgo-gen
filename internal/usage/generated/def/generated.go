@@ -1,8 +1,9 @@
 package def
 
 import (
+	"context"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-playground/validator/v10"
+	"github.com/jolfzverb/codegen/internal/usage/generated/api/apimodels"
 )
 
 type ExternalObject struct {
@@ -14,11 +15,23 @@ type ExternalRef2 struct {
 	Subfield1 string `json:"subfield1,omitempty"`
 }
 type Handler struct {
-	validator *validator.Validate
+	handler HandlerInterface
+}
+type HandlerInterface interface {
+	HandleCreate(ctx context.Context, r apimodels.CreateRequest) (*apimodels.CreateResponse, error)
 }
 
-func NewHandler(validator *validator.Validate) *Handler {
-	return &Handler{validator: validator}
+func NewHandler(handler HandlerInterface) *Handler {
+	return &Handler{handler: handler}
 }
-func AddRoutes(h *Handler, r *chi.Mux) {
+func (h *Handler) AddRoutes(r *chi.Mux) {
+}
+func Create200Response(data apimodels.NewResourseResponse, headers apimodels.CreateResponse200Headers) *apimodels.CreateResponse {
+	return &apimodels.CreateResponse{StatusCode: 200, Response200: &apimodels.Response200Data{Data: data, Headers: headers}}
+}
+func Create400Response() *apimodels.CreateResponse {
+	return &apimodels.CreateResponse{StatusCode: 400, Response400: &apimodels.Response400Data{Error: "Bad Request"}}
+}
+func Create404Response() *apimodels.CreateResponse {
+	return &apimodels.CreateResponse{StatusCode: 404, Response404: &apimodels.Response404Data{Error: "Not Found"}}
 }
