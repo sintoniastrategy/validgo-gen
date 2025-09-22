@@ -211,3 +211,8 @@ func (g *Generator) Generate(ctx context.Context) error {
 
 	return nil
 }
+
+// GetOpenAPISpec returns the current OpenAPI specification
+func (g *Generator) GetOpenAPISpec() *openapi3.T {
+	return g.yaml
+}
