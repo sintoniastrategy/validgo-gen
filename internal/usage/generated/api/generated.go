@@ -6,16 +6,6 @@ import (
 	"net/http"
 )
 
-type NewResourseResponse struct {
-	Date2        string `json:"date2,omitempty"`
-	DecimalField string `json:"decimal-field,omitempty"`
-	Description  string `json:"description,omitempty"`
-	EnumVal      string `json:"enum-val,omitempty"`
-	Name         string `json:"name"`
-	Param        string `json:"param"`
-	Count        string `json:"count"`
-	Date         string `json:"date,omitempty"`
-}
 type ComplexObjectForDive struct {
 	Arraystringsoptional []string `json:"array_strings_optional,omitempty"`
 	Arraystringsrequired []string `json:"array_strings_required"`
@@ -24,6 +14,16 @@ type ComplexObjectForDive struct {
 	Objectfieldrequired  string   `json:"object_field_required"`
 	Arrayobjectsoptional []string `json:"array_objects_optional,omitempty"`
 	Arrayobjectsrequired []string `json:"array_objects_required"`
+}
+type NewResourseResponse struct {
+	Name         string `json:"name"`
+	Param        string `json:"param"`
+	Count        string `json:"count"`
+	Date         string `json:"date,omitempty"`
+	Date2        string `json:"date2,omitempty"`
+	DecimalField string `json:"decimal-field,omitempty"`
+	Description  string `json:"description,omitempty"`
+	EnumVal      string `json:"enum-val,omitempty"`
 }
 type Handler struct {
 	validator *validator.Validate
