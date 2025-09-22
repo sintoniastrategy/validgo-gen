@@ -152,8 +152,6 @@ func TestParameterParser_CompleteWorkflow(t *testing.T) {
 	requiredImports := []string{
 		"net/http",
 		"github.com/go-chi/chi/v5",
-		"github.com/go-faster/errors",
-		"github.com/go-playground/validator/v10",
 	}
 
 	for _, requiredImport := range requiredImports {

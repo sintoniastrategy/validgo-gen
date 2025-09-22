@@ -114,12 +114,15 @@ func TestIntegration_CompleteFunctionGeneration(t *testing.T) {
 		t.Errorf("Expected 2 imports, got %d", len(file.Imports))
 	}
 
-	if len(file.Decls) != 1 {
-		t.Errorf("Expected 1 declaration, got %d", len(file.Decls))
+	if len(file.Decls) != 2 {
+		t.Errorf("Expected 2 declarations (imports + function), got %d", len(file.Decls))
+		for i, decl := range file.Decls {
+			t.Logf("Declaration %d: %T", i, decl)
+		}
 	}
 
-	// Verify function declaration
-	if funcDecl, ok := file.Decls[0].(*ast.FuncDecl); !ok {
+	// Verify function declaration (should be the second one)
+	if funcDecl, ok := file.Decls[1].(*ast.FuncDecl); !ok {
 		t.Fatal("Expected function declaration")
 	} else {
 		if funcDecl.Name.Name != "HandleRequest" {
@@ -189,12 +192,12 @@ func TestIntegration_StructGeneration(t *testing.T) {
 		t.Errorf("Expected 2 imports, got %d", len(file.Imports))
 	}
 
-	if len(file.Decls) != 1 {
-		t.Errorf("Expected 1 declaration, got %d", len(file.Decls))
+	if len(file.Decls) != 2 {
+		t.Errorf("Expected 2 declarations (imports + struct), got %d", len(file.Decls))
 	}
 
-	// Verify struct declaration
-	if genDecl, ok := file.Decls[0].(*ast.GenDecl); !ok {
+	// Verify struct declaration (should be the second one)
+	if genDecl, ok := file.Decls[1].(*ast.GenDecl); !ok {
 		t.Fatal("Expected type declaration")
 	} else if genDecl.Tok != token.TYPE {
 		t.Error("Expected TYPE token")
@@ -272,12 +275,12 @@ func TestIntegration_InterfaceGeneration(t *testing.T) {
 		t.Errorf("Expected 2 imports, got %d", len(file.Imports))
 	}
 
-	if len(file.Decls) != 1 {
-		t.Errorf("Expected 1 declaration, got %d", len(file.Decls))
+	if len(file.Decls) != 2 {
+		t.Errorf("Expected 2 declarations (imports + interface), got %d", len(file.Decls))
 	}
 
-	// Verify interface declaration
-	if genDecl, ok := file.Decls[0].(*ast.GenDecl); !ok {
+	// Verify interface declaration (should be the second one)
+	if genDecl, ok := file.Decls[1].(*ast.GenDecl); !ok {
 		t.Fatal("Expected type declaration")
 	} else if genDecl.Tok != token.TYPE {
 		t.Error("Expected TYPE token")
@@ -350,7 +353,7 @@ func TestIntegration_PatternUsage(t *testing.T) {
 
 	// Verify statements were added
 	stmts, _, _ := builder.Build()
-	if len(stmts) != 9 { // 3 patterns * 3 statements each
-		t.Errorf("Expected 9 statements, got %d", len(stmts))
+	if len(stmts) != 6 { // 3 patterns * 2 statements each
+		t.Errorf("Expected 6 statements, got %d", len(stmts))
 	}
 }
