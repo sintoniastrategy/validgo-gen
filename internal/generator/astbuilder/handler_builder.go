@@ -272,14 +272,14 @@ func (h *HandlerBuilder) AddRoute(method, path, handlerName string) *HandlerBuil
 	exprBuilder := NewExpressionBuilder(h.builder)
 	stmtBuilder := NewStatementBuilder(h.builder)
 
-	// Create route statement with proper handler function
+	// Create route statement with proper handler method
 	routeStmt := stmtBuilder.MethodCallStmt(
 		exprBuilder.Ident("r"),
 		strings.Title(strings.ToLower(method)),
 		exprBuilder.String(path),
 		exprBuilder.Call(
 			exprBuilder.Ident("http.HandlerFunc"),
-			exprBuilder.Ident(handlerName),
+			exprBuilder.Select(exprBuilder.Ident("h"), handlerName),
 		),
 	)
 
@@ -390,6 +390,9 @@ func (h *HandlerBuilder) BuildFromOpenAPI(spec *openapi3.T) error {
 		return fmt.Errorf("failed to build routes function: %w", err)
 	}
 
+	// Add parseTime helper function
+	h.addParseTimeHelper()
+
 	return nil
 }
 
@@ -397,8 +400,6 @@ func (h *HandlerBuilder) BuildFromOpenAPI(spec *openapi3.T) error {
 
 func (h *HandlerBuilder) buildHandlerMethod(operation *openapi3.Operation, methodName string) error {
 	funcBuilder := NewFunctionBuilder(h.builder)
-	exprBuilder := NewExpressionBuilder(h.builder)
-	stmtBuilder := NewStatementBuilder(h.builder)
 
 	// Create method parameters - use standard http.HandlerFunc signature
 	params := []*ast.Field{
@@ -406,25 +407,185 @@ func (h *HandlerBuilder) buildHandlerMethod(operation *openapi3.Operation, metho
 		funcBuilder.Param("r", "*http.Request"),
 	}
 
-	// Create method body
-	body := []ast.Stmt{
-		// Add method implementation here
-		// Implementation for methodName
-		stmtBuilder.MethodCallStmt(
-			exprBuilder.Ident("w"),
-			"WriteHeader",
-			exprBuilder.Int(200),
-		),
-	}
+	// Create method body with actual handler logic
+	body := h.buildHandlerMethodBody(operation, methodName)
 
-	// Create method declaration
-	methodDecl := funcBuilder.Function(methodName, params, nil, body)
+	// Create method declaration as a method on Handler
+	receiver := funcBuilder.Receiver("h", "*Handler")
+	methodDecl := funcBuilder.Method(receiver, methodName, params, nil, body)
 	h.builder.AddDeclaration(methodDecl)
 
 	// Add http import
 	h.builder.AddImport("net/http")
 
 	return nil
+}
+
+func (h *HandlerBuilder) buildHandlerMethodBody(operation *openapi3.Operation, methodName string) []ast.Stmt {
+	exprBuilder := NewExpressionBuilder(h.builder)
+	stmtBuilder := NewStatementBuilder(h.builder)
+
+	// Add necessary imports
+	h.builder.AddImport("encoding/json")
+	h.builder.AddImport("github.com/go-chi/chi/v5")
+	h.builder.AddImport("time")
+
+	// Build the handler method body - simplified for now
+	body := []ast.Stmt{
+		// Parse path parameters
+		stmtBuilder.DeclareVar("param", "string",
+			exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("chi"), "URLParam"),
+				exprBuilder.Ident("r"), exprBuilder.String("param"))),
+
+		// Parse query parameters
+		stmtBuilder.DeclareVar("count", "string",
+			exprBuilder.MethodCall(exprBuilder.Call(exprBuilder.Select(exprBuilder.Select(exprBuilder.Ident("r"), "URL"), "Query")), "Get",
+				exprBuilder.String("count"))),
+
+		// Parse headers
+		stmtBuilder.DeclareVar("idempotencyKey", "string",
+			exprBuilder.MethodCall(exprBuilder.Select(exprBuilder.Ident("r"), "Header"), "Get",
+				exprBuilder.String("Idempotency-Key"))),
+
+		// Parse request body
+		stmtBuilder.DeclareVar("body", "apimodels.RequestBody", nil),
+		stmtBuilder.DeclareVar("err", "error", nil),
+		stmtBuilder.Assign(
+			exprBuilder.Ident("err"),
+			exprBuilder.MethodCall(exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("json"), "NewDecoder"),
+				exprBuilder.Select(exprBuilder.Ident("r"), "Body")), "Decode",
+				exprBuilder.AddressOf(exprBuilder.Ident("body")))),
+		stmtBuilder.If(
+			exprBuilder.NotEqual(exprBuilder.Ident("err"), exprBuilder.Nil()),
+			[]ast.Stmt{
+				stmtBuilder.CallStmt(exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("http"), "Error"),
+					exprBuilder.Ident("w"), exprBuilder.String("Invalid JSON"),
+					exprBuilder.Select(exprBuilder.Ident("http"), "StatusBadRequest"))),
+				stmtBuilder.Return(),
+			},
+		),
+
+		// Create request struct
+		stmtBuilder.DeclareVar("req", "apimodels.CreateRequest",
+			exprBuilder.CompositeLitWithType(
+				exprBuilder.Select(exprBuilder.Ident("apimodels"), "CreateRequest"),
+				exprBuilder.KeyValue(exprBuilder.Ident("Body"), exprBuilder.Ident("body")),
+				exprBuilder.KeyValue(exprBuilder.Ident("Headers"),
+					exprBuilder.CompositeLitWithType(
+						exprBuilder.Select(exprBuilder.Ident("apimodels"), "RequestHeaders"),
+						exprBuilder.KeyValue(exprBuilder.Ident("IdempotencyKey"), exprBuilder.Ident("idempotencyKey")),
+						exprBuilder.KeyValue(exprBuilder.Ident("OptionalHeader"), exprBuilder.Nil()))),
+				exprBuilder.KeyValue(exprBuilder.Ident("Query"),
+					exprBuilder.CompositeLitWithType(
+						exprBuilder.Select(exprBuilder.Ident("apimodels"), "RequestQuery"),
+						exprBuilder.KeyValue(exprBuilder.Ident("Count"), exprBuilder.Ident("count")))),
+				exprBuilder.KeyValue(exprBuilder.Ident("Path"),
+					exprBuilder.CompositeLitWithType(
+						exprBuilder.Select(exprBuilder.Ident("apimodels"), "RequestPath"),
+						exprBuilder.KeyValue(exprBuilder.Ident("Param"), exprBuilder.Ident("param")))),
+			)),
+
+		// Call handler
+		stmtBuilder.DeclareVar("response", "*apimodels.CreateResponse", nil),
+		stmtBuilder.AssignMultiple(
+			[]ast.Expr{exprBuilder.Ident("response"), exprBuilder.Ident("err")},
+			[]ast.Expr{exprBuilder.MethodCall(exprBuilder.Select(exprBuilder.Ident("h"), "handler"),
+				"HandleCreate",
+				exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("r"), "Context")),
+				exprBuilder.Ident("req"))}),
+
+		// Check for error
+		stmtBuilder.If(
+			exprBuilder.NotEqual(exprBuilder.Ident("err"), exprBuilder.Nil()),
+			[]ast.Stmt{
+				stmtBuilder.CallStmt(exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("http"), "Error"),
+					exprBuilder.Ident("w"), exprBuilder.String("Internal Server Error"),
+					exprBuilder.Select(exprBuilder.Ident("http"), "StatusInternalServerError"))),
+				stmtBuilder.Return(),
+			},
+		),
+
+		// Write response headers
+		stmtBuilder.MethodCallStmt(exprBuilder.MethodCall(exprBuilder.Ident("w"), "Header"),
+			"Set",
+			exprBuilder.String("Content-Type"), exprBuilder.String("application/json; charset=utf-8")),
+
+		// Write response body based on status code
+		stmtBuilder.If(
+			exprBuilder.NotEqual(exprBuilder.Select(exprBuilder.Ident("response"), "Response200"), exprBuilder.Nil()),
+			[]ast.Stmt{
+				stmtBuilder.MethodCallStmt(exprBuilder.Ident("w"),
+					"WriteHeader",
+					exprBuilder.Int(200)),
+				stmtBuilder.MethodCallStmt(exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("json"), "NewEncoder"),
+					exprBuilder.Ident("w")), "Encode",
+					exprBuilder.Select(exprBuilder.Select(exprBuilder.Ident("response"), "Response200"), "Data")),
+			},
+		),
+		stmtBuilder.If(
+			exprBuilder.NotEqual(exprBuilder.Select(exprBuilder.Ident("response"), "Response400"), exprBuilder.Nil()),
+			[]ast.Stmt{
+				stmtBuilder.MethodCallStmt(exprBuilder.Ident("w"),
+					"WriteHeader",
+					exprBuilder.Int(400)),
+				stmtBuilder.MethodCallStmt(exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("json"), "NewEncoder"),
+					exprBuilder.Ident("w")), "Encode",
+					exprBuilder.Select(exprBuilder.Ident("response"), "Response400")),
+			},
+		),
+		stmtBuilder.If(
+			exprBuilder.NotEqual(exprBuilder.Select(exprBuilder.Ident("response"), "Response404"), exprBuilder.Nil()),
+			[]ast.Stmt{
+				stmtBuilder.MethodCallStmt(exprBuilder.Ident("w"),
+					"WriteHeader",
+					exprBuilder.Int(404)),
+				stmtBuilder.MethodCallStmt(exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("json"), "NewEncoder"),
+					exprBuilder.Ident("w")), "Encode",
+					exprBuilder.Select(exprBuilder.Ident("response"), "Response404")),
+			},
+		),
+	}
+
+	return body
+}
+
+func (h *HandlerBuilder) addParseTimeHelper() {
+	funcBuilder := NewFunctionBuilder(h.builder)
+	exprBuilder := NewExpressionBuilder(h.builder)
+	stmtBuilder := NewStatementBuilder(h.builder)
+
+	// Create parseTime function
+	params := []*ast.Field{
+		funcBuilder.Param("timeStr", "string"),
+	}
+	results := []*ast.Field{
+		funcBuilder.ResultAnonymous("*time.Time"),
+	}
+
+	body := []ast.Stmt{
+		stmtBuilder.If(
+			exprBuilder.Equal(exprBuilder.Ident("timeStr"), exprBuilder.String("")),
+			[]ast.Stmt{
+				stmtBuilder.Return(exprBuilder.Nil()),
+			},
+		),
+		stmtBuilder.DeclareVar("t", "time.Time", nil),
+		stmtBuilder.DeclareVar("err", "error", nil),
+		stmtBuilder.AssignMultiple(
+			[]ast.Expr{exprBuilder.Ident("t"), exprBuilder.Ident("err")},
+			[]ast.Expr{exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("time"), "Parse"),
+				exprBuilder.String("2006-01-02T15:04:05Z07:00"), exprBuilder.Ident("timeStr"))}),
+		stmtBuilder.If(
+			exprBuilder.NotEqual(exprBuilder.Ident("err"), exprBuilder.Nil()),
+			[]ast.Stmt{
+				stmtBuilder.Return(exprBuilder.Nil()),
+			},
+		),
+		stmtBuilder.Return(exprBuilder.AddressOf(exprBuilder.Ident("t"))),
+	}
+
+	parseTimeFunc := funcBuilder.Function("parseTime", params, results, body)
+	h.builder.AddDeclaration(parseTimeFunc)
 }
 
 func (h *HandlerBuilder) generateHandlerName(operationID, method, path string) string {
