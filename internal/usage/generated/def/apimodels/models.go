@@ -21,6 +21,10 @@ type RequestQuery struct {
 type RequestPath struct {
 	Param string
 }
+type RequestCookies struct {
+	CookieParam         *string `json:"cookie-param,omitempty"`
+	RequiredCookieParam string  `json:"required-cookie-param"`
+}
 type Response200Data struct {
 	Data    NewResourseResponse
 	Headers CreateResponse200Headers
@@ -58,6 +62,7 @@ type CreateRequest struct {
 	Headers RequestHeaders
 	Query   RequestQuery
 	Path    RequestPath
+	Cookies RequestCookies
 }
 type CreateResponse struct {
 	StatusCode  int

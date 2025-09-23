@@ -253,6 +253,13 @@ func (s *StatementBuilder) CallStmt(fun ast.Expr, args ...ast.Expr) ast.Stmt {
 	}
 }
 
+// CallStmtExpr creates a call statement from an existing call expression
+func (s *StatementBuilder) CallStmtExpr(callExpr ast.Expr) ast.Stmt {
+	return &ast.ExprStmt{
+		X: callExpr,
+	}
+}
+
 // MethodCallStmt creates a method call statement
 func (s *StatementBuilder) MethodCallStmt(receiver ast.Expr, method string, args ...ast.Expr) ast.Stmt {
 	return &ast.ExprStmt{

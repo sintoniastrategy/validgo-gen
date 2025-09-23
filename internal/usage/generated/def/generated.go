@@ -3,26 +3,28 @@ package def
 import (
 	"context"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-playground/validator/v10"
 	"github.com/jolfzverb/codegen/internal/usage/generated/api/apimodels"
 )
 
+type ExternalRef2 struct {
+	Subfield1 string `json:"subfield1,omitempty"`
+}
 type ExternalObject struct {
 	Field1 string `json:"field1,omitempty"`
 	Field2 string `json:"field2,omitempty"`
 }
 type ExternalRef string
-type ExternalRef2 struct {
-	Subfield1 string `json:"subfield1,omitempty"`
-}
 type Handler struct {
-	handler HandlerInterface
+	validator *validator.Validate
+	create    CreateHandler
 }
-type HandlerInterface interface {
+type CreateHandler interface {
 	HandleCreate(ctx context.Context, r apimodels.CreateRequest) (*apimodels.CreateResponse, error)
 }
 
-func NewHandler(handler HandlerInterface) *Handler {
-	return &Handler{handler: handler}
+func NewHandler(create CreateHandler) *Handler {
+	return &Handler{validator: validator.New(validator.WithRequiredStructEnabled()), create: create}
 }
 func (h *Handler) AddRoutes(r *chi.Mux) {
 }

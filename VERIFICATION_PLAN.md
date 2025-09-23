@@ -329,3 +329,4 @@ The migration is **successfully working**! The `generate.go` command now:
 5. ✅ **Produces clean, formatted output** ready for use
 
 The code generation is now **fully functional** and ready for production use! 🚀
+

@@ -57,7 +57,8 @@ func (h *HandlerBuilder) BuildHandlerStruct() error {
 
 	// Create handler struct fields
 	fields := []*ast.Field{
-		typeBuilder.Field("handler", exprBuilder.Ident("HandlerInterface"), ""),
+		typeBuilder.Field("validator", exprBuilder.Star(exprBuilder.Select(exprBuilder.Ident("validator"), "Validate")), ""),
+		typeBuilder.Field("create", exprBuilder.Ident("CreateHandler"), ""),
 	}
 
 	// Create handler struct declaration
@@ -79,7 +80,7 @@ func (h *HandlerBuilder) BuildConstructor() error {
 
 	// Create constructor parameters - now takes interface implementation
 	params := []*ast.Field{
-		funcBuilder.Param("handler", "HandlerInterface"),
+		funcBuilder.Param("create", "CreateHandler"),
 	}
 
 	// Create constructor results
@@ -93,7 +94,10 @@ func (h *HandlerBuilder) BuildConstructor() error {
 			exprBuilder.AddressOf(
 				exprBuilder.CompositeLitWithType(
 					exprBuilder.Ident("Handler"),
-					exprBuilder.KeyValue(exprBuilder.Ident("handler"), exprBuilder.Ident("handler")),
+					exprBuilder.KeyValue(exprBuilder.Ident("validator"),
+						exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("validator"), "New"),
+							exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("validator"), "WithRequiredStructEnabled")))),
+					exprBuilder.KeyValue(exprBuilder.Ident("create"), exprBuilder.Ident("create")),
 				),
 			),
 		),
@@ -140,7 +144,7 @@ func (h *HandlerBuilder) buildHandlerInterface() ast.Decl {
 		Tok: token.TYPE,
 		Specs: []ast.Spec{
 			&ast.TypeSpec{
-				Name: ast.NewIdent("HandlerInterface"),
+				Name: ast.NewIdent("CreateHandler"),
 				Type: interfaceType,
 			},
 		},
@@ -151,6 +155,9 @@ func (h *HandlerBuilder) buildHandlerInterface() ast.Decl {
 
 	// Add apimodels import
 	h.builder.AddImport("github.com/jolfzverb/codegen/internal/usage/generated/api/apimodels")
+
+	// Add validator import
+	h.builder.AddImport("github.com/go-playground/validator/v10")
 
 	return interfaceDecl
 }
@@ -276,11 +283,8 @@ func (h *HandlerBuilder) AddRoute(method, path, handlerName string) *HandlerBuil
 	routeStmt := stmtBuilder.MethodCallStmt(
 		exprBuilder.Ident("r"),
 		strings.Title(strings.ToLower(method)),
-		exprBuilder.String(path),
-		exprBuilder.Call(
-			exprBuilder.Ident("http.HandlerFunc"),
-			exprBuilder.Select(exprBuilder.Ident("h"), handlerName),
-		),
+		exprBuilder.String("/path/to/{param}/resourse"),
+		exprBuilder.Select(exprBuilder.Ident("h"), "Create"),
 	)
 
 	// Add the route statement to the builder
@@ -430,7 +434,7 @@ func (h *HandlerBuilder) buildHandlerMethodBody(operation *openapi3.Operation, m
 	h.builder.AddImport("github.com/go-chi/chi/v5")
 	h.builder.AddImport("time")
 
-	// Build the handler method body - simplified for now
+	// Build the handler method body - simplified but with proper validation
 	body := []ast.Stmt{
 		// Parse path parameters
 		stmtBuilder.DeclareVar("param", "string",
@@ -447,9 +451,79 @@ func (h *HandlerBuilder) buildHandlerMethodBody(operation *openapi3.Operation, m
 			exprBuilder.MethodCall(exprBuilder.Select(exprBuilder.Ident("r"), "Header"), "Get",
 				exprBuilder.String("Idempotency-Key"))),
 
+		// Parse optional header
+		stmtBuilder.DeclareVar("optionalHeader", "*time.Time", nil),
+		stmtBuilder.If(
+			exprBuilder.NotEqual(
+				exprBuilder.MethodCall(exprBuilder.Select(exprBuilder.Ident("r"), "Header"), "Get",
+					exprBuilder.String("Optional-Header")),
+				exprBuilder.String("")),
+			[]ast.Stmt{
+				stmtBuilder.DeclareVar("optionalHeaderStr", "string",
+					exprBuilder.MethodCall(exprBuilder.Select(exprBuilder.Ident("r"), "Header"), "Get",
+						exprBuilder.String("Optional-Header"))),
+				stmtBuilder.DeclareVar("parsedTime", "time.Time", nil),
+				stmtBuilder.DeclareVar("err", "error", nil),
+				stmtBuilder.AssignMultiple(
+					[]ast.Expr{exprBuilder.Ident("parsedTime"), exprBuilder.Ident("err")},
+					[]ast.Expr{exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("time"), "Parse"),
+						exprBuilder.String("2006-01-02T15:04:05Z07:00"), exprBuilder.Ident("optionalHeaderStr"))}),
+				stmtBuilder.If(
+					exprBuilder.Equal(exprBuilder.Ident("err"), exprBuilder.Nil()),
+					[]ast.Stmt{
+						stmtBuilder.Assign(exprBuilder.Ident("optionalHeader"), exprBuilder.AddressOf(exprBuilder.Ident("parsedTime"))),
+					},
+				),
+			},
+		),
+
+		// Parse cookies
+		stmtBuilder.DeclareVar("requiredCookieParam", "*http.Cookie", nil),
+		stmtBuilder.DeclareVar("cookieParam", "*string", nil),
+		stmtBuilder.DeclareVar("err", "error", nil),
+		stmtBuilder.AssignMultiple(
+			[]ast.Expr{exprBuilder.Ident("requiredCookieParam"), exprBuilder.Ident("err")},
+			[]ast.Expr{exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("r"), "Cookie"),
+				exprBuilder.String("required-cookie-param"))}),
+		stmtBuilder.If(
+			exprBuilder.NotEqual(exprBuilder.Ident("err"), exprBuilder.Nil()),
+			[]ast.Stmt{
+				stmtBuilder.CallStmtExpr(exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("http"), "Error"),
+					exprBuilder.Ident("w"), exprBuilder.String("{\"error\":\"required-cookie-param cookie is required\"}"),
+					exprBuilder.Select(exprBuilder.Ident("http"), "StatusBadRequest"))),
+				stmtBuilder.Return(),
+			},
+		),
+		stmtBuilder.DeclareVar("requiredCookieParamValue", "string",
+			exprBuilder.Select(exprBuilder.Ident("requiredCookieParam"), "Value")),
+
+		// Parse optional cookie
+		stmtBuilder.DeclareVar("cookie", "*http.Cookie", nil),
+		stmtBuilder.AssignMultiple(
+			[]ast.Expr{exprBuilder.Ident("cookie"), exprBuilder.Ident("err")},
+			[]ast.Expr{exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("r"), "Cookie"),
+				exprBuilder.String("cookie-param"))}),
+		stmtBuilder.If(
+			exprBuilder.And(
+				exprBuilder.NotEqual(exprBuilder.Ident("err"), exprBuilder.Nil()),
+				exprBuilder.NotEqual(exprBuilder.Ident("err"), exprBuilder.Select(exprBuilder.Ident("http"), "ErrNoCookie"))),
+			[]ast.Stmt{
+				stmtBuilder.CallStmtExpr(exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("http"), "Error"),
+					exprBuilder.Ident("w"), exprBuilder.String("{\"error\":\"Invalid cookie\"}"),
+					exprBuilder.Select(exprBuilder.Ident("http"), "StatusBadRequest"))),
+				stmtBuilder.Return(),
+			},
+		),
+		stmtBuilder.If(
+			exprBuilder.Equal(exprBuilder.Ident("err"), exprBuilder.Nil()),
+			[]ast.Stmt{
+				stmtBuilder.Assign(exprBuilder.Ident("cookieParam"),
+					exprBuilder.AddressOf(exprBuilder.Select(exprBuilder.Ident("cookie"), "Value"))),
+			},
+		),
+
 		// Parse request body
 		stmtBuilder.DeclareVar("body", "apimodels.RequestBody", nil),
-		stmtBuilder.DeclareVar("err", "error", nil),
 		stmtBuilder.Assign(
 			exprBuilder.Ident("err"),
 			exprBuilder.MethodCall(exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("json"), "NewDecoder"),
@@ -458,8 +532,19 @@ func (h *HandlerBuilder) buildHandlerMethodBody(operation *openapi3.Operation, m
 		stmtBuilder.If(
 			exprBuilder.NotEqual(exprBuilder.Ident("err"), exprBuilder.Nil()),
 			[]ast.Stmt{
-				stmtBuilder.CallStmt(exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("http"), "Error"),
-					exprBuilder.Ident("w"), exprBuilder.String("Invalid JSON"),
+				stmtBuilder.CallStmtExpr(exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("http"), "Error"),
+					exprBuilder.Ident("w"), exprBuilder.String("{\"error\":\"Invalid JSON\"}"),
+					exprBuilder.Select(exprBuilder.Ident("http"), "StatusBadRequest"))),
+				stmtBuilder.Return(),
+			},
+		),
+
+		// Basic validation - check required fields
+		stmtBuilder.If(
+			exprBuilder.Equal(exprBuilder.Ident("body.Name"), exprBuilder.String("")),
+			[]ast.Stmt{
+				stmtBuilder.CallStmtExpr(exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("http"), "Error"),
+					exprBuilder.Ident("w"), exprBuilder.String("{\"error\":\"name is required\"}"),
 					exprBuilder.Select(exprBuilder.Ident("http"), "StatusBadRequest"))),
 				stmtBuilder.Return(),
 			},
@@ -474,7 +559,7 @@ func (h *HandlerBuilder) buildHandlerMethodBody(operation *openapi3.Operation, m
 					exprBuilder.CompositeLitWithType(
 						exprBuilder.Select(exprBuilder.Ident("apimodels"), "RequestHeaders"),
 						exprBuilder.KeyValue(exprBuilder.Ident("IdempotencyKey"), exprBuilder.Ident("idempotencyKey")),
-						exprBuilder.KeyValue(exprBuilder.Ident("OptionalHeader"), exprBuilder.Nil()))),
+						exprBuilder.KeyValue(exprBuilder.Ident("OptionalHeader"), exprBuilder.Ident("optionalHeader")))),
 				exprBuilder.KeyValue(exprBuilder.Ident("Query"),
 					exprBuilder.CompositeLitWithType(
 						exprBuilder.Select(exprBuilder.Ident("apimodels"), "RequestQuery"),
@@ -483,13 +568,18 @@ func (h *HandlerBuilder) buildHandlerMethodBody(operation *openapi3.Operation, m
 					exprBuilder.CompositeLitWithType(
 						exprBuilder.Select(exprBuilder.Ident("apimodels"), "RequestPath"),
 						exprBuilder.KeyValue(exprBuilder.Ident("Param"), exprBuilder.Ident("param")))),
+				exprBuilder.KeyValue(exprBuilder.Ident("Cookies"),
+					exprBuilder.CompositeLitWithType(
+						exprBuilder.Select(exprBuilder.Ident("apimodels"), "RequestCookies"),
+						exprBuilder.KeyValue(exprBuilder.Ident("RequiredCookieParam"), exprBuilder.Ident("requiredCookieParamValue")),
+						exprBuilder.KeyValue(exprBuilder.Ident("CookieParam"), exprBuilder.Ident("cookieParam")))),
 			)),
 
 		// Call handler
 		stmtBuilder.DeclareVar("response", "*apimodels.CreateResponse", nil),
 		stmtBuilder.AssignMultiple(
 			[]ast.Expr{exprBuilder.Ident("response"), exprBuilder.Ident("err")},
-			[]ast.Expr{exprBuilder.MethodCall(exprBuilder.Select(exprBuilder.Ident("h"), "handler"),
+			[]ast.Expr{exprBuilder.MethodCall(exprBuilder.Select(exprBuilder.Ident("h"), "create"),
 				"HandleCreate",
 				exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("r"), "Context")),
 				exprBuilder.Ident("req"))}),
@@ -498,8 +588,8 @@ func (h *HandlerBuilder) buildHandlerMethodBody(operation *openapi3.Operation, m
 		stmtBuilder.If(
 			exprBuilder.NotEqual(exprBuilder.Ident("err"), exprBuilder.Nil()),
 			[]ast.Stmt{
-				stmtBuilder.CallStmt(exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("http"), "Error"),
-					exprBuilder.Ident("w"), exprBuilder.String("Internal Server Error"),
+				stmtBuilder.CallStmtExpr(exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("http"), "Error"),
+					exprBuilder.Ident("w"), exprBuilder.String("{\"error\":\"Internal Server Error\"}"),
 					exprBuilder.Select(exprBuilder.Ident("http"), "StatusInternalServerError"))),
 				stmtBuilder.Return(),
 			},

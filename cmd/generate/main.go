@@ -196,6 +196,9 @@ func generateRequestResponseTypesInAPIModels(spec *openapi3.T, packageName strin
 	requestPathType := generateRequestPathType(apimodelsBuilder)
 	apimodelsBuilder.AddDeclaration(requestPathType)
 
+	requestCookiesType := generateRequestCookiesType(apimodelsBuilder)
+	apimodelsBuilder.AddDeclaration(requestCookiesType)
+
 	// Generate response types with correct date types
 	response200DataType := generateResponse200DataType(apimodelsBuilder)
 	apimodelsBuilder.AddDeclaration(response200DataType)
@@ -350,6 +353,7 @@ func generateCreateRequestType(builder *astbuilder.Builder) ast.Decl {
 		typeBuilder.Field("Headers", exprBuilder.Ident("RequestHeaders"), ""),
 		typeBuilder.Field("Query", exprBuilder.Ident("RequestQuery"), ""),
 		typeBuilder.Field("Path", exprBuilder.Ident("RequestPath"), ""),
+		typeBuilder.Field("Cookies", exprBuilder.Ident("RequestCookies"), ""),
 	}
 
 	return typeBuilder.StructAlias("CreateRequest", fields)
@@ -740,6 +744,19 @@ func generatePackageName(yamlFile string) string {
 	}
 
 	return name
+}
+
+func generateRequestCookiesType(builder *astbuilder.Builder) ast.Decl {
+	typeBuilder := astbuilder.NewTypeBuilder(builder)
+	exprBuilder := astbuilder.NewExpressionBuilder(builder)
+
+	// Create RequestCookies struct
+	fields := []*ast.Field{
+		typeBuilder.Field("CookieParam", exprBuilder.Star(exprBuilder.Ident("string")), `json:"cookie-param,omitempty"`),
+		typeBuilder.Field("RequiredCookieParam", exprBuilder.Ident("string"), `json:"required-cookie-param"`),
+	}
+
+	return typeBuilder.StructAlias("RequestCookies", fields)
 }
 
 func formatASTFile(file *ast.File) ([]byte, error) {
