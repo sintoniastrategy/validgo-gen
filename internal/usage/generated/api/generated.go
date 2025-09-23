@@ -68,11 +68,37 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "{\"error\":\"Invalid JSON\"}", http.StatusBadRequest)
 		return
 	}
-	if body.Name == "" {
-		http.Error(w, "{\"error\":\"name is required\"}", http.StatusBadRequest)
+	var validationErr error
+	validationErr = h.validator.Struct(body)
+	if validationErr != nil {
+		http.Error(w, "{\"error\":\"Validation failed\"}", http.StatusBadRequest)
 		return
 	}
-	var req apimodels.CreateRequest = apimodels.CreateRequest{Body: body, Headers: apimodels.RequestHeaders{IdempotencyKey: idempotencyKey, OptionalHeader: optionalHeader}, Query: apimodels.RequestQuery{Count: count}, Path: apimodels.RequestPath{Param: param}, Cookies: apimodels.RequestCookies{RequiredCookieParam: requiredCookieParamValue, CookieParam: cookieParam}}
+	var pathParams apimodels.RequestPath = apimodels.RequestPath{Param: param}
+	validationErr = h.validator.Struct(pathParams)
+	if validationErr != nil {
+		http.Error(w, "{\"error\":\"Path validation failed\"}", http.StatusBadRequest)
+		return
+	}
+	var queryParams apimodels.RequestQuery = apimodels.RequestQuery{Count: count}
+	validationErr = h.validator.Struct(queryParams)
+	if validationErr != nil {
+		http.Error(w, "{\"error\":\"Query validation failed\"}", http.StatusBadRequest)
+		return
+	}
+	var headers apimodels.RequestHeaders = apimodels.RequestHeaders{IdempotencyKey: idempotencyKey, OptionalHeader: optionalHeader}
+	validationErr = h.validator.Struct(headers)
+	if validationErr != nil {
+		http.Error(w, "{\"error\":\"Header validation failed\"}", http.StatusBadRequest)
+		return
+	}
+	var cookies apimodels.RequestCookies = apimodels.RequestCookies{RequiredCookieParam: requiredCookieParamValue, CookieParam: cookieParam}
+	validationErr = h.validator.Struct(cookies)
+	if validationErr != nil {
+		http.Error(w, "{\"error\":\"Cookie validation failed\"}", http.StatusBadRequest)
+		return
+	}
+	var req apimodels.CreateRequest = apimodels.CreateRequest{Body: body, Headers: headers, Query: queryParams, Path: pathParams, Cookies: cookies}
 	var response *apimodels.CreateResponse
 	response, err = h.create.HandleCreate(r.Context(), req)
 	if err != nil {
@@ -81,6 +107,9 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	if response.Response200 != nil {
+		if response.Response200.Headers.IdempotencyKey != nil {
+			w.Header().Set("Idempotency-Key", *response.Response200.Headers.IdempotencyKey)
+		}
 		w.WriteHeader(200)
 		json.NewEncoder(w).Encode(response.Response200.Data)
 	}

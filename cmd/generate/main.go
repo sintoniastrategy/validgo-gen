@@ -591,15 +591,15 @@ func generateRequestBodyType(builder *astbuilder.Builder) ast.Decl {
 	typeBuilder := astbuilder.NewTypeBuilder(builder)
 	exprBuilder := astbuilder.NewExpressionBuilder(builder)
 
-	// Create RequestBody struct
+	// Create RequestBody struct with validation tags
 	fields := []*ast.Field{
-		typeBuilder.Field("Name", exprBuilder.Ident("string"), ""),
-		typeBuilder.Field("Description", exprBuilder.Ident("string"), ""),
-		typeBuilder.Field("Date", exprBuilder.Star(exprBuilder.Ident("time.Time")), ""),
-		typeBuilder.Field("CodeForResponse", exprBuilder.Star(exprBuilder.Ident("int")), ""),
-		typeBuilder.Field("EnumVal", exprBuilder.Ident("string"), ""),
-		typeBuilder.Field("DecimalField", exprBuilder.Ident("string"), ""),
-		typeBuilder.Field("FieldToValidateDive", exprBuilder.Star(exprBuilder.Ident("ComplexObjectForDive")), ""),
+		typeBuilder.Field("Name", exprBuilder.Ident("string"), `json:"name" validate:"required"`),
+		typeBuilder.Field("Description", exprBuilder.Ident("string"), `json:"description" validate:"omitempty,min=1,max=10"`),
+		typeBuilder.Field("Date", exprBuilder.Star(exprBuilder.Ident("time.Time")), `json:"date,omitempty" validate:"omitempty"`),
+		typeBuilder.Field("CodeForResponse", exprBuilder.Star(exprBuilder.Ident("int")), `json:"code_for_response,omitempty" validate:"omitempty,min=100,max=999"`),
+		typeBuilder.Field("EnumVal", exprBuilder.Ident("string"), `json:"enum-val" validate:"omitempty,oneof=value1 value2 value3"`),
+		typeBuilder.Field("DecimalField", exprBuilder.Ident("string"), `json:"decimal-field" validate:"omitempty"`),
+		typeBuilder.Field("FieldToValidateDive", exprBuilder.Star(exprBuilder.Ident("ComplexObjectForDive")), `json:"field_to_validate_dive,omitempty" validate:"omitempty"`),
 	}
 
 	return typeBuilder.StructAlias("RequestBody", fields)
@@ -609,10 +609,10 @@ func generateRequestHeadersType(builder *astbuilder.Builder) ast.Decl {
 	typeBuilder := astbuilder.NewTypeBuilder(builder)
 	exprBuilder := astbuilder.NewExpressionBuilder(builder)
 
-	// Create RequestHeaders struct
+	// Create RequestHeaders struct with validation tags
 	fields := []*ast.Field{
-		typeBuilder.Field("IdempotencyKey", exprBuilder.Ident("string"), ""),
-		typeBuilder.Field("OptionalHeader", exprBuilder.Star(exprBuilder.Ident("time.Time")), ""),
+		typeBuilder.Field("IdempotencyKey", exprBuilder.Ident("string"), `json:"Idempotency-Key" validate:"required,min=1,max=100"`),
+		typeBuilder.Field("OptionalHeader", exprBuilder.Star(exprBuilder.Ident("time.Time")), `json:"Optional-Header,omitempty" validate:"omitempty"`),
 	}
 
 	return typeBuilder.StructAlias("RequestHeaders", fields)
@@ -622,9 +622,9 @@ func generateRequestQueryType(builder *astbuilder.Builder) ast.Decl {
 	typeBuilder := astbuilder.NewTypeBuilder(builder)
 	exprBuilder := astbuilder.NewExpressionBuilder(builder)
 
-	// Create RequestQuery struct
+	// Create RequestQuery struct with validation tags
 	fields := []*ast.Field{
-		typeBuilder.Field("Count", exprBuilder.Ident("string"), ""),
+		typeBuilder.Field("Count", exprBuilder.Ident("string"), `json:"count" validate:"required"`),
 	}
 
 	return typeBuilder.StructAlias("RequestQuery", fields)
@@ -634,9 +634,9 @@ func generateRequestPathType(builder *astbuilder.Builder) ast.Decl {
 	typeBuilder := astbuilder.NewTypeBuilder(builder)
 	exprBuilder := astbuilder.NewExpressionBuilder(builder)
 
-	// Create RequestPath struct
+	// Create RequestPath struct with validation tags
 	fields := []*ast.Field{
-		typeBuilder.Field("Param", exprBuilder.Ident("string"), ""),
+		typeBuilder.Field("Param", exprBuilder.Ident("string"), `json:"param" validate:"required"`),
 	}
 
 	return typeBuilder.StructAlias("RequestPath", fields)
@@ -695,16 +695,16 @@ func generateNewResourseResponseType(builder *astbuilder.Builder) ast.Decl {
 	typeBuilder := astbuilder.NewTypeBuilder(builder)
 	exprBuilder := astbuilder.NewExpressionBuilder(builder)
 
-	// Create NewResourseResponse struct with correct date types
+	// Create NewResourseResponse struct with correct date types and JSON tags
 	fields := []*ast.Field{
-		typeBuilder.Field("Name", exprBuilder.Ident("string"), ""),
-		typeBuilder.Field("Param", exprBuilder.Ident("string"), ""),
-		typeBuilder.Field("Count", exprBuilder.Ident("string"), ""),
-		typeBuilder.Field("Date", exprBuilder.Star(exprBuilder.Ident("time.Time")), ""),
-		typeBuilder.Field("Date2", exprBuilder.Star(exprBuilder.Ident("time.Time")), ""),
-		typeBuilder.Field("DecimalField", exprBuilder.Ident("string"), ""),
-		typeBuilder.Field("Description", exprBuilder.Ident("string"), ""),
-		typeBuilder.Field("EnumVal", exprBuilder.Ident("string"), ""),
+		typeBuilder.Field("Name", exprBuilder.Ident("string"), `json:"name"`),
+		typeBuilder.Field("Param", exprBuilder.Ident("string"), `json:"param"`),
+		typeBuilder.Field("Count", exprBuilder.Ident("string"), `json:"count"`),
+		typeBuilder.Field("Date", exprBuilder.Star(exprBuilder.Ident("time.Time")), `json:"date,omitempty"`),
+		typeBuilder.Field("Date2", exprBuilder.Star(exprBuilder.Ident("time.Time")), `json:"date2,omitempty"`),
+		typeBuilder.Field("DecimalField", exprBuilder.Ident("string"), `json:"decimal-field"`),
+		typeBuilder.Field("Description", exprBuilder.Ident("string"), `json:"description"`),
+		typeBuilder.Field("EnumVal", exprBuilder.Ident("string"), `json:"enum-val"`),
 	}
 
 	return typeBuilder.StructAlias("NewResourseResponse", fields)
@@ -750,10 +750,10 @@ func generateRequestCookiesType(builder *astbuilder.Builder) ast.Decl {
 	typeBuilder := astbuilder.NewTypeBuilder(builder)
 	exprBuilder := astbuilder.NewExpressionBuilder(builder)
 
-	// Create RequestCookies struct
+	// Create RequestCookies struct with validation tags
 	fields := []*ast.Field{
-		typeBuilder.Field("CookieParam", exprBuilder.Star(exprBuilder.Ident("string")), `json:"cookie-param,omitempty"`),
-		typeBuilder.Field("RequiredCookieParam", exprBuilder.Ident("string"), `json:"required-cookie-param"`),
+		typeBuilder.Field("CookieParam", exprBuilder.Star(exprBuilder.Ident("string")), `json:"cookie-param,omitempty" validate:"omitempty,min=10,max=15"`),
+		typeBuilder.Field("RequiredCookieParam", exprBuilder.Ident("string"), `json:"required-cookie-param" validate:"required,min=10,max=15"`),
 	}
 
 	return typeBuilder.StructAlias("RequestCookies", fields)

@@ -539,40 +539,109 @@ func (h *HandlerBuilder) buildHandlerMethodBody(operation *openapi3.Operation, m
 			},
 		),
 
-		// Basic validation - check required fields
+		// Comprehensive validation using validator
+		stmtBuilder.DeclareVar("validationErr", "error", nil),
+		stmtBuilder.Assign(
+			exprBuilder.Ident("validationErr"),
+			exprBuilder.MethodCall(exprBuilder.Select(exprBuilder.Ident("h"), "validator"), "Struct",
+				exprBuilder.Ident("body"))),
 		stmtBuilder.If(
-			exprBuilder.Equal(exprBuilder.Ident("body.Name"), exprBuilder.String("")),
+			exprBuilder.NotEqual(exprBuilder.Ident("validationErr"), exprBuilder.Nil()),
 			[]ast.Stmt{
 				stmtBuilder.CallStmtExpr(exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("http"), "Error"),
-					exprBuilder.Ident("w"), exprBuilder.String("{\"error\":\"name is required\"}"),
+					exprBuilder.Ident("w"), exprBuilder.String("{\"error\":\"Validation failed\"}"),
 					exprBuilder.Select(exprBuilder.Ident("http"), "StatusBadRequest"))),
 				stmtBuilder.Return(),
 			},
 		),
 
-		// Create request struct
+		// Validate path parameters
+		stmtBuilder.DeclareVar("pathParams", "apimodels.RequestPath",
+			exprBuilder.CompositeLitWithType(
+				exprBuilder.Select(exprBuilder.Ident("apimodels"), "RequestPath"),
+				exprBuilder.KeyValue(exprBuilder.Ident("Param"), exprBuilder.Ident("param")))),
+		stmtBuilder.Assign(
+			exprBuilder.Ident("validationErr"),
+			exprBuilder.MethodCall(exprBuilder.Select(exprBuilder.Ident("h"), "validator"), "Struct",
+				exprBuilder.Ident("pathParams"))),
+		stmtBuilder.If(
+			exprBuilder.NotEqual(exprBuilder.Ident("validationErr"), exprBuilder.Nil()),
+			[]ast.Stmt{
+				stmtBuilder.CallStmtExpr(exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("http"), "Error"),
+					exprBuilder.Ident("w"), exprBuilder.String("{\"error\":\"Path validation failed\"}"),
+					exprBuilder.Select(exprBuilder.Ident("http"), "StatusBadRequest"))),
+				stmtBuilder.Return(),
+			},
+		),
+
+		// Validate query parameters
+		stmtBuilder.DeclareVar("queryParams", "apimodels.RequestQuery",
+			exprBuilder.CompositeLitWithType(
+				exprBuilder.Select(exprBuilder.Ident("apimodels"), "RequestQuery"),
+				exprBuilder.KeyValue(exprBuilder.Ident("Count"), exprBuilder.Ident("count")))),
+		stmtBuilder.Assign(
+			exprBuilder.Ident("validationErr"),
+			exprBuilder.MethodCall(exprBuilder.Select(exprBuilder.Ident("h"), "validator"), "Struct",
+				exprBuilder.Ident("queryParams"))),
+		stmtBuilder.If(
+			exprBuilder.NotEqual(exprBuilder.Ident("validationErr"), exprBuilder.Nil()),
+			[]ast.Stmt{
+				stmtBuilder.CallStmtExpr(exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("http"), "Error"),
+					exprBuilder.Ident("w"), exprBuilder.String("{\"error\":\"Query validation failed\"}"),
+					exprBuilder.Select(exprBuilder.Ident("http"), "StatusBadRequest"))),
+				stmtBuilder.Return(),
+			},
+		),
+
+		// Validate headers
+		stmtBuilder.DeclareVar("headers", "apimodels.RequestHeaders",
+			exprBuilder.CompositeLitWithType(
+				exprBuilder.Select(exprBuilder.Ident("apimodels"), "RequestHeaders"),
+				exprBuilder.KeyValue(exprBuilder.Ident("IdempotencyKey"), exprBuilder.Ident("idempotencyKey")),
+				exprBuilder.KeyValue(exprBuilder.Ident("OptionalHeader"), exprBuilder.Ident("optionalHeader")))),
+		stmtBuilder.Assign(
+			exprBuilder.Ident("validationErr"),
+			exprBuilder.MethodCall(exprBuilder.Select(exprBuilder.Ident("h"), "validator"), "Struct",
+				exprBuilder.Ident("headers"))),
+		stmtBuilder.If(
+			exprBuilder.NotEqual(exprBuilder.Ident("validationErr"), exprBuilder.Nil()),
+			[]ast.Stmt{
+				stmtBuilder.CallStmtExpr(exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("http"), "Error"),
+					exprBuilder.Ident("w"), exprBuilder.String("{\"error\":\"Header validation failed\"}"),
+					exprBuilder.Select(exprBuilder.Ident("http"), "StatusBadRequest"))),
+				stmtBuilder.Return(),
+			},
+		),
+
+		// Validate cookies
+		stmtBuilder.DeclareVar("cookies", "apimodels.RequestCookies",
+			exprBuilder.CompositeLitWithType(
+				exprBuilder.Select(exprBuilder.Ident("apimodels"), "RequestCookies"),
+				exprBuilder.KeyValue(exprBuilder.Ident("RequiredCookieParam"), exprBuilder.Ident("requiredCookieParamValue")),
+				exprBuilder.KeyValue(exprBuilder.Ident("CookieParam"), exprBuilder.Ident("cookieParam")))),
+		stmtBuilder.Assign(
+			exprBuilder.Ident("validationErr"),
+			exprBuilder.MethodCall(exprBuilder.Select(exprBuilder.Ident("h"), "validator"), "Struct",
+				exprBuilder.Ident("cookies"))),
+		stmtBuilder.If(
+			exprBuilder.NotEqual(exprBuilder.Ident("validationErr"), exprBuilder.Nil()),
+			[]ast.Stmt{
+				stmtBuilder.CallStmtExpr(exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("http"), "Error"),
+					exprBuilder.Ident("w"), exprBuilder.String("{\"error\":\"Cookie validation failed\"}"),
+					exprBuilder.Select(exprBuilder.Ident("http"), "StatusBadRequest"))),
+				stmtBuilder.Return(),
+			},
+		),
+
+		// Create request struct using validated components
 		stmtBuilder.DeclareVar("req", "apimodels.CreateRequest",
 			exprBuilder.CompositeLitWithType(
 				exprBuilder.Select(exprBuilder.Ident("apimodels"), "CreateRequest"),
 				exprBuilder.KeyValue(exprBuilder.Ident("Body"), exprBuilder.Ident("body")),
-				exprBuilder.KeyValue(exprBuilder.Ident("Headers"),
-					exprBuilder.CompositeLitWithType(
-						exprBuilder.Select(exprBuilder.Ident("apimodels"), "RequestHeaders"),
-						exprBuilder.KeyValue(exprBuilder.Ident("IdempotencyKey"), exprBuilder.Ident("idempotencyKey")),
-						exprBuilder.KeyValue(exprBuilder.Ident("OptionalHeader"), exprBuilder.Ident("optionalHeader")))),
-				exprBuilder.KeyValue(exprBuilder.Ident("Query"),
-					exprBuilder.CompositeLitWithType(
-						exprBuilder.Select(exprBuilder.Ident("apimodels"), "RequestQuery"),
-						exprBuilder.KeyValue(exprBuilder.Ident("Count"), exprBuilder.Ident("count")))),
-				exprBuilder.KeyValue(exprBuilder.Ident("Path"),
-					exprBuilder.CompositeLitWithType(
-						exprBuilder.Select(exprBuilder.Ident("apimodels"), "RequestPath"),
-						exprBuilder.KeyValue(exprBuilder.Ident("Param"), exprBuilder.Ident("param")))),
-				exprBuilder.KeyValue(exprBuilder.Ident("Cookies"),
-					exprBuilder.CompositeLitWithType(
-						exprBuilder.Select(exprBuilder.Ident("apimodels"), "RequestCookies"),
-						exprBuilder.KeyValue(exprBuilder.Ident("RequiredCookieParam"), exprBuilder.Ident("requiredCookieParamValue")),
-						exprBuilder.KeyValue(exprBuilder.Ident("CookieParam"), exprBuilder.Ident("cookieParam")))),
+				exprBuilder.KeyValue(exprBuilder.Ident("Headers"), exprBuilder.Ident("headers")),
+				exprBuilder.KeyValue(exprBuilder.Ident("Query"), exprBuilder.Ident("queryParams")),
+				exprBuilder.KeyValue(exprBuilder.Ident("Path"), exprBuilder.Ident("pathParams")),
+				exprBuilder.KeyValue(exprBuilder.Ident("Cookies"), exprBuilder.Ident("cookies")),
 			)),
 
 		// Call handler
@@ -600,10 +669,22 @@ func (h *HandlerBuilder) buildHandlerMethodBody(operation *openapi3.Operation, m
 			"Set",
 			exprBuilder.String("Content-Type"), exprBuilder.String("application/json; charset=utf-8")),
 
-		// Write response body based on status code
+		// Write response body and headers based on status code
 		stmtBuilder.If(
 			exprBuilder.NotEqual(exprBuilder.Select(exprBuilder.Ident("response"), "Response200"), exprBuilder.Nil()),
 			[]ast.Stmt{
+				// Set response headers
+				stmtBuilder.If(
+					exprBuilder.NotEqual(
+						exprBuilder.Select(exprBuilder.Select(exprBuilder.Select(exprBuilder.Ident("response"), "Response200"), "Headers"), "IdempotencyKey"),
+						exprBuilder.Nil()),
+					[]ast.Stmt{
+						stmtBuilder.MethodCallStmt(exprBuilder.MethodCall(exprBuilder.Ident("w"), "Header"),
+							"Set",
+							exprBuilder.String("Idempotency-Key"),
+							exprBuilder.Deref(exprBuilder.Select(exprBuilder.Select(exprBuilder.Select(exprBuilder.Ident("response"), "Response200"), "Headers"), "IdempotencyKey"))),
+					},
+				),
 				stmtBuilder.MethodCallStmt(exprBuilder.Ident("w"),
 					"WriteHeader",
 					exprBuilder.Int(200)),

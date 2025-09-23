@@ -3,27 +3,27 @@ package apimodels
 import "time"
 
 type RequestBody struct {
-	Name                string
-	Description         string
-	Date                *time.Time
-	CodeForResponse     *int
-	EnumVal             string
-	DecimalField        string
-	FieldToValidateDive *ComplexObjectForDive
+	Name                string                `json:"name" validate:"required"`
+	Description         string                `json:"description" validate:"omitempty,min=1,max=10"`
+	Date                *time.Time            `json:"date,omitempty" validate:"omitempty"`
+	CodeForResponse     *int                  `json:"code_for_response,omitempty" validate:"omitempty,min=100,max=999"`
+	EnumVal             string                `json:"enum-val" validate:"omitempty,oneof=value1 value2 value3"`
+	DecimalField        string                `json:"decimal-field" validate:"omitempty"`
+	FieldToValidateDive *ComplexObjectForDive `json:"field_to_validate_dive,omitempty" validate:"omitempty"`
 }
 type RequestHeaders struct {
-	IdempotencyKey string
-	OptionalHeader *time.Time
+	IdempotencyKey string     `json:"Idempotency-Key" validate:"required,min=1,max=100"`
+	OptionalHeader *time.Time `json:"Optional-Header,omitempty" validate:"omitempty"`
 }
 type RequestQuery struct {
-	Count string
+	Count string `json:"count" validate:"required"`
 }
 type RequestPath struct {
-	Param string
+	Param string `json:"param" validate:"required"`
 }
 type RequestCookies struct {
-	CookieParam         *string `json:"cookie-param,omitempty"`
-	RequiredCookieParam string  `json:"required-cookie-param"`
+	CookieParam         *string `json:"cookie-param,omitempty" validate:"omitempty,min=10,max=15"`
+	RequiredCookieParam string  `json:"required-cookie-param" validate:"required,min=10,max=15"`
 }
 type Response200Data struct {
 	Data    NewResourseResponse
@@ -39,14 +39,14 @@ type CreateResponse200Headers struct {
 	IdempotencyKey *string
 }
 type NewResourseResponse struct {
-	Name         string
-	Param        string
-	Count        string
-	Date         *time.Time
-	Date2        *time.Time
-	DecimalField string
-	Description  string
-	EnumVal      string
+	Name         string     `json:"name"`
+	Param        string     `json:"param"`
+	Count        string     `json:"count"`
+	Date         *time.Time `json:"date,omitempty"`
+	Date2        *time.Time `json:"date2,omitempty"`
+	DecimalField string     `json:"decimal-field"`
+	Description  string     `json:"description"`
+	EnumVal      string     `json:"enum-val"`
 }
 type ComplexObjectForDive struct {
 	ObjectFieldRequired  string
