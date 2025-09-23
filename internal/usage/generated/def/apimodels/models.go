@@ -8,6 +8,7 @@ type RequestBody struct {
 	Date                *time.Time            `json:"date,omitempty" validate:"omitempty"`
 	CodeForResponse     *int                  `json:"code_for_response,omitempty" validate:"omitempty,min=100,max=999"`
 	EnumVal             string                `json:"enum-val" validate:"omitempty,oneof=value1 value2 value3"`
+	EnumInt             *int                  `json:"enum-int,omitempty" validate:"omitempty,oneof=1 2 3"`
 	DecimalField        string                `json:"decimal-field" validate:"omitempty"`
 	FieldToValidateDive *ComplexObjectForDive `json:"field_to_validate_dive,omitempty" validate:"omitempty"`
 }
@@ -19,7 +20,8 @@ type RequestQuery struct {
 	Count string `json:"count" validate:"required"`
 }
 type RequestPath struct {
-	Param string `json:"param" validate:"required"`
+	Param  string `json:"param" validate:"required"`
+	Suffix string `json:"suffix" validate:"required,oneof=e es"`
 }
 type RequestCookies struct {
 	CookieParam         *string `json:"cookie-param,omitempty" validate:"omitempty,min=10,max=15"`
@@ -49,13 +51,13 @@ type NewResourseResponse struct {
 	EnumVal      string     `json:"enum-val"`
 }
 type ComplexObjectForDive struct {
-	ObjectFieldRequired  string
-	ArrayObjectsOptional []string
-	ArrayObjectsRequired []string
-	ArrayStringsOptional []string
-	ArrayStringsRequired []string
-	ArraysOfArrays       []string
-	ObjectFieldOptional  string
+	ObjectFieldRequired  map[string]string   `json:"object_field_required" validate:"required,dive"`
+	ArrayObjectsOptional []map[string]string `json:"array_objects_optional" validate:"omitempty,dive"`
+	ArrayObjectsRequired []map[string]string `json:"array_objects_required" validate:"required,dive"`
+	ArrayStringsOptional []string            `json:"array_strings_optional" validate:"omitempty,dive,min=5"`
+	ArrayStringsRequired []string            `json:"array_strings_required" validate:"required,dive,min=5"`
+	ArraysOfArrays       []string            `json:"arrays_of_arrays" validate:"omitempty,dive,min=5"`
+	ObjectFieldOptional  map[string]string   `json:"object_field_optional" validate:"omitempty,dive"`
 }
 type CreateRequest struct {
 	Body    RequestBody

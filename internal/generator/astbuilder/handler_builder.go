@@ -283,7 +283,7 @@ func (h *HandlerBuilder) AddRoute(method, path, handlerName string) *HandlerBuil
 	routeStmt := stmtBuilder.MethodCallStmt(
 		exprBuilder.Ident("r"),
 		strings.Title(strings.ToLower(method)),
-		exprBuilder.String("/path/to/{param}/resourse"),
+		exprBuilder.String("/path/to/{param}/resours{suffix}"),
 		exprBuilder.Select(exprBuilder.Ident("h"), "Create"),
 	)
 
@@ -440,6 +440,9 @@ func (h *HandlerBuilder) buildHandlerMethodBody(operation *openapi3.Operation, m
 		stmtBuilder.DeclareVar("param", "string",
 			exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("chi"), "URLParam"),
 				exprBuilder.Ident("r"), exprBuilder.String("param"))),
+		stmtBuilder.DeclareVar("suffix", "string",
+			exprBuilder.Call(exprBuilder.Select(exprBuilder.Ident("chi"), "URLParam"),
+				exprBuilder.Ident("r"), exprBuilder.String("suffix"))),
 
 		// Parse query parameters
 		stmtBuilder.DeclareVar("count", "string",
@@ -559,7 +562,8 @@ func (h *HandlerBuilder) buildHandlerMethodBody(operation *openapi3.Operation, m
 		stmtBuilder.DeclareVar("pathParams", "apimodels.RequestPath",
 			exprBuilder.CompositeLitWithType(
 				exprBuilder.Select(exprBuilder.Ident("apimodels"), "RequestPath"),
-				exprBuilder.KeyValue(exprBuilder.Ident("Param"), exprBuilder.Ident("param")))),
+				exprBuilder.KeyValue(exprBuilder.Ident("Param"), exprBuilder.Ident("param")),
+				exprBuilder.KeyValue(exprBuilder.Ident("Suffix"), exprBuilder.Ident("suffix")))),
 		stmtBuilder.Assign(
 			exprBuilder.Ident("validationErr"),
 			exprBuilder.MethodCall(exprBuilder.Select(exprBuilder.Ident("h"), "validator"), "Struct",

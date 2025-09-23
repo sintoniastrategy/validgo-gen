@@ -11,13 +11,13 @@ import (
 )
 
 type ComplexObjectForDive struct {
+	Arraystringsoptional []string `json:"array_strings_optional,omitempty"`
+	Arraystringsrequired []string `json:"array_strings_required"`
 	Arraysofarrays       []string `json:"arrays_of_arrays,omitempty"`
 	Objectfieldoptional  string   `json:"object_field_optional,omitempty"`
 	Objectfieldrequired  string   `json:"object_field_required"`
 	Arrayobjectsoptional []string `json:"array_objects_optional,omitempty"`
 	Arrayobjectsrequired []string `json:"array_objects_required"`
-	Arraystringsoptional []string `json:"array_strings_optional,omitempty"`
-	Arraystringsrequired []string `json:"array_strings_required"`
 }
 type Handler struct {
 	validator *validator.Validate
@@ -32,6 +32,7 @@ func NewHandler(create CreateHandler) *Handler {
 }
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	var param string = chi.URLParam(r, "param")
+	var suffix string = chi.URLParam(r, "suffix")
 	var count string = r.URL.Query().Get("count")
 	var idempotencyKey string = r.Header.Get("Idempotency-Key")
 	var optionalHeader *time.Time
@@ -74,7 +75,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "{\"error\":\"Validation failed\"}", http.StatusBadRequest)
 		return
 	}
-	var pathParams apimodels.RequestPath = apimodels.RequestPath{Param: param}
+	var pathParams apimodels.RequestPath = apimodels.RequestPath{Param: param, Suffix: suffix}
 	validationErr = h.validator.Struct(pathParams)
 	if validationErr != nil {
 		http.Error(w, "{\"error\":\"Path validation failed\"}", http.StatusBadRequest)
@@ -123,7 +124,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func (h *Handler) AddRoutes(r *chi.Mux) {
-	r.Post("/path/to/{param}/resourse", h.Create)
+	r.Post("/path/to/{param}/resours{suffix}", h.Create)
 }
 func parseTime(timeStr string) *time.Time {
 	if timeStr == "" {

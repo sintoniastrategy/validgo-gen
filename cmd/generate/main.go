@@ -598,6 +598,7 @@ func generateRequestBodyType(builder *astbuilder.Builder) ast.Decl {
 		typeBuilder.Field("Date", exprBuilder.Star(exprBuilder.Ident("time.Time")), `json:"date,omitempty" validate:"omitempty"`),
 		typeBuilder.Field("CodeForResponse", exprBuilder.Star(exprBuilder.Ident("int")), `json:"code_for_response,omitempty" validate:"omitempty,min=100,max=999"`),
 		typeBuilder.Field("EnumVal", exprBuilder.Ident("string"), `json:"enum-val" validate:"omitempty,oneof=value1 value2 value3"`),
+		typeBuilder.Field("EnumInt", exprBuilder.Star(exprBuilder.Ident("int")), `json:"enum-int,omitempty" validate:"omitempty,oneof=1 2 3"`),
 		typeBuilder.Field("DecimalField", exprBuilder.Ident("string"), `json:"decimal-field" validate:"omitempty"`),
 		typeBuilder.Field("FieldToValidateDive", exprBuilder.Star(exprBuilder.Ident("ComplexObjectForDive")), `json:"field_to_validate_dive,omitempty" validate:"omitempty"`),
 	}
@@ -637,6 +638,7 @@ func generateRequestPathType(builder *astbuilder.Builder) ast.Decl {
 	// Create RequestPath struct with validation tags
 	fields := []*ast.Field{
 		typeBuilder.Field("Param", exprBuilder.Ident("string"), `json:"param" validate:"required"`),
+		typeBuilder.Field("Suffix", exprBuilder.Ident("string"), `json:"suffix" validate:"required,oneof=e es"`),
 	}
 
 	return typeBuilder.StructAlias("RequestPath", fields)
@@ -714,15 +716,15 @@ func generateComplexObjectForDiveType(builder *astbuilder.Builder) ast.Decl {
 	typeBuilder := astbuilder.NewTypeBuilder(builder)
 	exprBuilder := astbuilder.NewExpressionBuilder(builder)
 
-	// Create ComplexObjectForDive struct
+	// Create ComplexObjectForDive struct with dive validation
 	fields := []*ast.Field{
-		typeBuilder.Field("ObjectFieldRequired", exprBuilder.Ident("string"), ""),
-		typeBuilder.Field("ArrayObjectsOptional", exprBuilder.SliceType(exprBuilder.Ident("string")), ""),
-		typeBuilder.Field("ArrayObjectsRequired", exprBuilder.SliceType(exprBuilder.Ident("string")), ""),
-		typeBuilder.Field("ArrayStringsOptional", exprBuilder.SliceType(exprBuilder.Ident("string")), ""),
-		typeBuilder.Field("ArrayStringsRequired", exprBuilder.SliceType(exprBuilder.Ident("string")), ""),
-		typeBuilder.Field("ArraysOfArrays", exprBuilder.SliceType(exprBuilder.Ident("string")), ""),
-		typeBuilder.Field("ObjectFieldOptional", exprBuilder.Ident("string"), ""),
+		typeBuilder.Field("ObjectFieldRequired", exprBuilder.MapType(exprBuilder.Ident("string"), exprBuilder.Ident("string")), `json:"object_field_required" validate:"required,dive"`),
+		typeBuilder.Field("ArrayObjectsOptional", exprBuilder.SliceType(exprBuilder.MapType(exprBuilder.Ident("string"), exprBuilder.Ident("string"))), `json:"array_objects_optional" validate:"omitempty,dive"`),
+		typeBuilder.Field("ArrayObjectsRequired", exprBuilder.SliceType(exprBuilder.MapType(exprBuilder.Ident("string"), exprBuilder.Ident("string"))), `json:"array_objects_required" validate:"required,dive"`),
+		typeBuilder.Field("ArrayStringsOptional", exprBuilder.SliceType(exprBuilder.Ident("string")), `json:"array_strings_optional" validate:"omitempty,dive,min=5"`),
+		typeBuilder.Field("ArrayStringsRequired", exprBuilder.SliceType(exprBuilder.Ident("string")), `json:"array_strings_required" validate:"required,dive,min=5"`),
+		typeBuilder.Field("ArraysOfArrays", exprBuilder.SliceType(exprBuilder.Ident("string")), `json:"arrays_of_arrays" validate:"omitempty,dive,min=5"`),
+		typeBuilder.Field("ObjectFieldOptional", exprBuilder.MapType(exprBuilder.Ident("string"), exprBuilder.Ident("string")), `json:"object_field_optional" validate:"omitempty,dive"`),
 	}
 
 	return typeBuilder.StructAlias("ComplexObjectForDive", fields)
