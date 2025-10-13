@@ -7,8 +7,6 @@ import (
 	"go/token"
 	"io"
 	"slices"
-	"sort"
-	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-faster/errors"
@@ -189,58 +187,8 @@ func (g *Generator) AddHandlersImport(path string) {
 	g.HandlersFile.packageImports = append(g.HandlersFile.packageImports, path)
 }
 
-func (g *Generator) GenerateImportsSpecs(imp []string) ([]*ast.ImportSpec, []ast.Spec) {
-	var systemImports []string //nolint:prealloc
-	var libImports []string
-	var myImports []string
-	for _, path := range imp {
-		if strings.HasPrefix(path, g.Opts.PackagePrefix) {
-			myImports = append(myImports, path)
-
-			continue
-		}
-		prefix := strings.SplitN(path, "/", 2)[0] //nolint:mnd
-		if strings.Contains(prefix, ".") {
-			libImports = append(libImports, path)
-
-			continue
-		}
-		systemImports = append(systemImports, path)
-	}
-
-	sort.Strings(systemImports)
-	sort.Strings(libImports)
-	sort.Strings(myImports)
-
-	specs := make([]*ast.ImportSpec, 0, len(imp))
-	for _, path := range systemImports {
-		specs = append(specs, &ast.ImportSpec{Path: Str(path)})
-	}
-
-	// Add a space to separate system and library imports
-	// but go/ast is too great for that
-	for _, path := range libImports {
-		specs = append(specs, &ast.ImportSpec{Path: Str(path)})
-	}
-
-	// Add a space to separate library and user imports
-	// but go/ast is too great for that
-	for _, path := range myImports {
-		specs = append(specs, &ast.ImportSpec{Path: Str(path)})
-	}
-
-	declSpecs := make([]ast.Spec, 0, len(specs))
-	for _, spec := range specs {
-		declSpecs = append(declSpecs, spec)
-	}
-
-	return specs, declSpecs
-}
-
 func (g *Generator) GenerateHandlersFile() *ast.File {
-	importSpecs, declSpecs := g.GenerateImportsSpecs(g.HandlersFile.packageImports)
-
-	importSpecs, declSpecs = g.HandlerImportsBuilder.Build()
+	importSpecs, declSpecs := g.HandlerImportsBuilder.Build()
 
 	g.FinalizeHandlerSwitches()
 
