@@ -1,12 +1,12 @@
 package astbuilder
 
+/*
 import (
 	"fmt"
 	"go/ast"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/jolfzverb/codegen/internal/generator"
 )
 
 // SchemaConfig holds configuration for schema building
@@ -446,3 +446,4 @@ func (s *SchemaBuilder) GetConfig() SchemaConfig {
 func (s *SchemaBuilder) GetBuilder() *Builder {
 	return s.builder
 }
+*/

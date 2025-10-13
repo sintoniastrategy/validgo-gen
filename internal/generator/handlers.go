@@ -182,6 +182,7 @@ func (g *Generator) AddDependencyToHandlers(baseName string) {
 }
 
 func (g *Generator) AddHandlersImport(path string) {
+	g.HandlerImportsBuilder.AddImport(path)
 	if slices.Contains(g.HandlersFile.packageImports, path) {
 		return
 	}
@@ -238,6 +239,8 @@ func (g *Generator) GenerateImportsSpecs(imp []string) ([]*ast.ImportSpec, []ast
 
 func (g *Generator) GenerateHandlersFile() *ast.File {
 	importSpecs, declSpecs := g.GenerateImportsSpecs(g.HandlersFile.packageImports)
+
+	importSpecs, declSpecs = g.HandlerImportsBuilder.Build()
 
 	g.FinalizeHandlerSwitches()
 

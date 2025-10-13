@@ -83,6 +83,7 @@ func (g *Generator) WriteSchemasToOutput(output io.Writer) error {
 	}
 
 	importSpecs, declSpecs := g.GenerateImportsSpecs(g.SchemasFile.packageImports)
+	importSpecs, declSpecs = g.SchemasImportsBuilder.Build()
 
 	file := &ast.File{
 		Name:    ast.NewIdent(g.PackageName + "models"),
@@ -301,6 +302,7 @@ func (g *Generator) GetIntegerType(format string) string {
 }
 
 func (g *Generator) AddSchemasImport(path string) {
+	g.SchemasImportsBuilder.AddImport(path)
 	for _, imp := range g.SchemasFile.packageImports {
 		if imp == path {
 			return

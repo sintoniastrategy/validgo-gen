@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jolfzverb/codegen/internal/generator"
+	"github.com/jolfzverb/codegen/internal/generator/astbuilder"
 	"github.com/jolfzverb/codegen/internal/generator/options"
 	"github.com/stretchr/testify/assert"
 )
@@ -85,6 +86,8 @@ type StringModel string
 	gen.PackageName = "packagename"
 	gen.ImportPrefix = "imports"
 	gen.ModelsImportPath = "packagename/imports/models"
+	gen.HandlerImportsBuilder = astbuilder.NewImportsBuilder(gen.PackageName)
+	gen.SchemasImportsBuilder = astbuilder.NewImportsBuilder(gen.PackageName)
 	err := gen.PrepareAndRead(input)
 	assert.NoError(t, err)
 	err = gen.GenerateFiles()
@@ -718,6 +721,8 @@ type ObjectModel struct {
 			gen.PackageName = "packagename"
 			gen.ImportPrefix = "imports"
 			gen.ModelsImportPath = "packagename/imports/models"
+			gen.HandlerImportsBuilder = astbuilder.NewImportsBuilder(gen.PackageName)
+			gen.SchemasImportsBuilder = astbuilder.NewImportsBuilder(gen.PackageName)
 			err := gen.PrepareAndRead(input)
 			assert.NoError(t, err)
 			err = gen.GenerateFiles()
@@ -1099,6 +1104,8 @@ func (h *Handler) handlePostExampleParamName(w http.ResponseWriter, r *http.Requ
 			gen.PackageName = "packagename"
 			gen.ImportPrefix = "imports"
 			gen.ModelsImportPath = "packagename/imports/models"
+			gen.HandlerImportsBuilder = astbuilder.NewImportsBuilder(gen.PackageName)
+			gen.SchemasImportsBuilder = astbuilder.NewImportsBuilder(gen.PackageName)
 			err := gen.PrepareAndRead(input)
 			assert.NoError(t, err)
 			err = gen.GenerateFiles()
@@ -1282,6 +1289,8 @@ func ValidateBodyJSON(_ json.RawMessage) error {
 			gen.PackageName = "packagename"
 			gen.ImportPrefix = "imports"
 			gen.ModelsImportPath = "packagename/imports/models"
+			gen.HandlerImportsBuilder = astbuilder.NewImportsBuilder(gen.PackageName)
+			gen.SchemasImportsBuilder = astbuilder.NewImportsBuilder(gen.PackageName)
 			err := gen.PrepareAndRead(input)
 			assert.NoError(t, err)
 			err = gen.GenerateFiles()
@@ -1466,6 +1475,8 @@ func ValidateBodyJSON(_ json.RawMessage) error {
 			gen.PackageName = "packagename"
 			gen.ImportPrefix = "imports"
 			gen.ModelsImportPath = "packagename/imports/models"
+			gen.HandlerImportsBuilder = astbuilder.NewImportsBuilder(gen.PackageName)
+			gen.SchemasImportsBuilder = astbuilder.NewImportsBuilder(gen.PackageName)
 			err := gen.PrepareAndRead(input)
 			assert.NoError(t, err)
 			err = gen.GenerateFiles()
@@ -1634,6 +1645,8 @@ func (h *Handler) handleOp(w http.ResponseWriter, r *http.Request) {
 			gen.PackageName = "packagename"
 			gen.ImportPrefix = "imports"
 			gen.ModelsImportPath = "packagename/imports/models"
+			gen.HandlerImportsBuilder = astbuilder.NewImportsBuilder(gen.PackageName)
+			gen.SchemasImportsBuilder = astbuilder.NewImportsBuilder(gen.PackageName)
 			err := gen.PrepareAndRead(input)
 			assert.NoError(t, err)
 			err = gen.GenerateFiles()
@@ -1816,6 +1829,8 @@ func (h *Handler) handleOp(w http.ResponseWriter, r *http.Request) {
 			gen.PackageName = "packagename"
 			gen.ImportPrefix = "imports"
 			gen.ModelsImportPath = "packagename/imports/models"
+			gen.HandlerImportsBuilder = astbuilder.NewImportsBuilder(gen.PackageName)
+			gen.SchemasImportsBuilder = astbuilder.NewImportsBuilder(gen.PackageName)
 			err := gen.PrepareAndRead(input)
 			assert.NoError(t, err)
 			err = gen.GenerateFiles()
