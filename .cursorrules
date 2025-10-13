@@ -1,0 +1,56 @@
+# Cursor Rules for jolfzverb-codegen
+
+## Project Context
+This is an OpenAPI 3.0 code generator that creates type-safe Go code from OpenAPI specifications. It generates HTTP handlers, data models, and validation code for building robust REST APIs in Go.
+
+## Code Style & Standards
+- Follow Go naming conventions and best practices
+- Use descriptive function and variable names
+- Add comments for complex logic
+- Follow existing error handling patterns with `errors.Wrap()`
+- Maintain consistency with existing code patterns
+
+## Architecture Guidelines
+- Core generation logic is in `internal/generator/`
+- CLI entry point is `cmd/generate.go`
+- Use AST building utilities in `utils.go` for consistency
+- Follow the existing data flow: OpenAPI YAML → Generator → AST → Go Code
+
+## Key Components
+- **Generator**: Main orchestrator in `api.go`
+- **Schema Generation**: `generateschemas.go` and `schemas.go`
+- **Handler Generation**: `generatehandlers.go` and `handlers.go`
+- **AST Utilities**: `utils.go` for AST building helpers
+
+## Testing Requirements
+- Add tests for new functionality in `test/` directory
+- Use golden file tests for generated code comparison
+- Follow existing test patterns and structure
+- Run tests with `make test` or `go test ./...`
+
+## Dependencies
+- kin-openapi: OpenAPI 3.0 parsing
+- go-chi/chi: HTTP router
+- go-playground/validator: Validation
+- shopspring/decimal: Decimal numbers
+- golang.org/x/text: Text processing
+
+## Common Patterns
+- Use `FormatGoLikeIdentifier()` for OpenAPI name conversion
+- Use `AddSchemasImport()` or `AddHandlersImport()` for imports
+- Follow existing parameter parsing patterns in `AddParseParamsMethods()`
+- Use AST utilities like `I()`, `Str()`, `Field()`, `Func()`, `Sel()`
+
+## Debugging Tips
+- Check generated code in `internal/usage/generated/`
+- Use `go/ast` package for AST inspection
+- Validate OpenAPI specs before processing
+- Verify external reference resolution
+
+## File Modification Guidelines
+- Modify core files only for major changes
+- Add new files for new major features
+- Update tests when modifying functionality
+- Follow existing error handling patterns
+
+Refer to `AI_AGENT_GUIDE.md` for detailed technical documentation.
