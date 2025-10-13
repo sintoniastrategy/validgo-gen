@@ -10,6 +10,8 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-faster/errors"
+
+	"github.com/jolfzverb/codegen/internal/generator/astbuilder"
 )
 
 type HandlersFile struct {
@@ -131,35 +133,29 @@ func (g *Generator) WriteHandlersToOutput(output io.Writer) error {
 }
 
 func (g *Generator) AddHandlersInterface(name string, methodName string, requestName string, responseName string) {
-	var methodParams []*ast.Field
-	methodParams = append(methodParams, Field("ctx", Sel(I("context"), "Context"), ""))
-	methodParams = append(methodParams, Field("r", Sel(I(g.GetCurrentModelsPackage()), requestName), ""))
-	var methodResults []*ast.Field
-	methodResults = append(methodResults, Field("", Star(Sel(I(g.GetCurrentModelsPackage()), responseName)), ""))
-	methodResults = append(methodResults, Field("", I("error"), ""))
-	g.HandlersFile.interfaceDecls = append(g.HandlersFile.interfaceDecls, &ast.GenDecl{
-		Tok: token.TYPE,
-		Specs: []ast.Spec{
-			&ast.TypeSpec{
-				Name: I(name),
-				Type: &ast.InterfaceType{
-					Methods: &ast.FieldList{
-						List: []*ast.Field{{
-							Names: []*ast.Ident{I(methodName)},
-							Type: &ast.FuncType{
-								Params: &ast.FieldList{
-									List: methodParams,
-								},
-								Results: &ast.FieldList{
-									List: methodResults,
-								},
-							},
-						}},
-					},
-				},
-			},
-		},
-	})
+	interfaceBuilder := astbuilder.NewInterfaceBuilder().WithName(name).WithMethod(
+		astbuilder.NewInterfaceMethodBuilder().WithName(methodName).
+			AddArgField(
+				astbuilder.NewFieldBuilder().WithName("ctx").WithType(
+					astbuilder.NewSimpleTypeBuilder().AddElements("context", "Context"),
+				)).
+			AddArgField(
+				astbuilder.NewFieldBuilder().WithName("r").WithType(
+					astbuilder.NewSimpleTypeBuilder().AddElements(
+						g.GetCurrentModelsPackage(), requestName,
+					))).
+			AddRetvalField(
+				astbuilder.NewFieldBuilder().WithType(
+					astbuilder.NewSimpleTypeBuilder().AddElements(
+						g.GetCurrentModelsPackage(), responseName,
+					).AsPointer(true))).
+			AddRetvalField(
+				astbuilder.NewFieldBuilder().WithType(
+					astbuilder.NewSimpleTypeBuilder().AddElement("error")),
+			),
+	)
+
+	g.HandlersFile.interfaceDecls = append(g.HandlersFile.interfaceDecls, interfaceBuilder.Build())
 }
 
 func (g *Generator) AddDependencyToHandlers(baseName string) {
