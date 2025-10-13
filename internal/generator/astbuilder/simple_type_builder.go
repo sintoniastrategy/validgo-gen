@@ -143,6 +143,11 @@ func Int() *SimpleTypeBuilder {
 	return NewSimpleTypeBuilder().AddElement("int")
 }
 
+// Bool creates a simple type builder for "bool"
+func Bool() *SimpleTypeBuilder {
+	return NewSimpleTypeBuilder().AddElement("bool")
+}
+
 // Error creates a simple type builder for "error"
 func Error() *SimpleTypeBuilder {
 	return NewSimpleTypeBuilder().AddElement("error")

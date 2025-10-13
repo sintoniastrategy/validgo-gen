@@ -21,8 +21,12 @@ func TestNewFieldBuilder(t *testing.T) {
 		t.Fatal("typeBuilder should not be nil")
 	}
 
-	if builder.tag != "" {
-		t.Errorf("Expected empty tag initially, got %s", builder.tag)
+	if len(builder.jsonTags) != 0 {
+		t.Errorf("Expected empty jsonTags initially, got %v", builder.jsonTags)
+	}
+
+	if len(builder.validateTags) != 0 {
+		t.Errorf("Expected empty validateTags initially, got %v", builder.validateTags)
 	}
 }
 
@@ -67,16 +71,41 @@ func TestFieldBuilder_WithType(t *testing.T) {
 	builder.WithType(nil)
 }
 
-func TestFieldBuilder_WithTag(t *testing.T) {
+func TestFieldBuilder_AddJSONTag(t *testing.T) {
 	builder := NewFieldBuilder()
 
-	result := builder.WithTag(`json:"name"`)
+	result := builder.AddJSONTag("name")
 	if result != builder {
-		t.Error("WithTag should return the builder for chaining")
+		t.Error("AddJSONTag should return the builder for chaining")
 	}
 
-	if builder.tag != `json:"name"` {
-		t.Errorf("Expected tag 'json:\"name\"', got %s", builder.tag)
+	if len(builder.jsonTags) != 1 || builder.jsonTags[0] != "name" {
+		t.Errorf("Expected jsonTags ['name'], got %v", builder.jsonTags)
+	}
+
+	// Test adding another tag
+	builder.AddJSONTag("omitempty")
+	if len(builder.jsonTags) != 2 || builder.jsonTags[1] != "omitempty" {
+		t.Errorf("Expected jsonTags ['name', 'omitempty'], got %v", builder.jsonTags)
+	}
+}
+
+func TestFieldBuilder_AddValidateTag(t *testing.T) {
+	builder := NewFieldBuilder()
+
+	result := builder.AddValidateTag("required")
+	if result != builder {
+		t.Error("AddValidateTag should return the builder for chaining")
+	}
+
+	if len(builder.validateTags) != 1 || builder.validateTags[0] != "required" {
+		t.Errorf("Expected validateTags ['required'], got %v", builder.validateTags)
+	}
+
+	// Test adding another tag
+	builder.AddValidateTag("min=1")
+	if len(builder.validateTags) != 2 || builder.validateTags[1] != "min=1" {
+		t.Errorf("Expected validateTags ['required', 'min=1'], got %v", builder.validateTags)
 	}
 }
 
@@ -85,7 +114,7 @@ func TestFieldBuilder_Build(t *testing.T) {
 	builder := NewFieldBuilder().
 		WithName("fieldName").
 		WithType(String()).
-		WithTag(`json:"name"`)
+		AddJSONTag("name")
 
 	field := builder.Build()
 
@@ -116,8 +145,9 @@ func TestFieldBuilder_Build(t *testing.T) {
 		t.Fatal("Tag should not be nil")
 	}
 
-	if field.Tag.Value != `json:"name"` {
-		t.Errorf("Expected tag 'json:\"name\"', got %s", field.Tag.Value)
+	expectedTag := "`json:\"name\"`"
+	if field.Tag.Value != expectedTag {
+		t.Errorf("Expected tag '%s', got %s", expectedTag, field.Tag.Value)
 	}
 
 	if field.Tag.Kind != token.STRING {
@@ -262,19 +292,41 @@ func TestFieldBuilder_UtilityMethods(t *testing.T) {
 		t.Errorf("Expected GetName to return 'test', got %s", builder.GetName())
 	}
 
-	// Test HasTag
-	if builder.HasTag() {
-		t.Error("Expected HasTag to return false initially")
+	// Test HasTags
+	if builder.HasTags() {
+		t.Error("Expected HasTags to return false initially")
 	}
 
-	builder.WithTag("test")
-	if !builder.HasTag() {
-		t.Error("Expected HasTag to return true after setting tag")
+	builder.AddJSONTag("test")
+	if !builder.HasTags() {
+		t.Error("Expected HasTags to return true after adding tag")
 	}
 
-	// Test GetTag
-	if builder.GetTag() != "test" {
-		t.Errorf("Expected GetTag to return 'test', got %s", builder.GetTag())
+	// Test HasJSONTags
+	if !builder.HasJSONTags() {
+		t.Error("Expected HasJSONTags to return true after adding JSON tag")
+	}
+
+	// Test HasValidateTags
+	if builder.HasValidateTags() {
+		t.Error("Expected HasValidateTags to return false initially")
+	}
+
+	builder.AddValidateTag("required")
+	if !builder.HasValidateTags() {
+		t.Error("Expected HasValidateTags to return true after adding validate tag")
+	}
+
+	// Test GetJSONTags
+	jsonTags := builder.GetJSONTags()
+	if len(jsonTags) != 1 || jsonTags[0] != "test" {
+		t.Errorf("Expected GetJSONTags to return ['test'], got %v", jsonTags)
+	}
+
+	// Test GetValidateTags
+	validateTags := builder.GetValidateTags()
+	if len(validateTags) != 1 || validateTags[0] != "required" {
+		t.Errorf("Expected GetValidateTags to return ['required'], got %v", validateTags)
 	}
 }
 
@@ -282,7 +334,8 @@ func TestFieldBuilder_Clone(t *testing.T) {
 	builder := NewFieldBuilder().
 		WithName("test").
 		WithType(String()).
-		WithTag("test")
+		AddJSONTag("test").
+		AddValidateTag("required")
 
 	clone := builder.Clone()
 
@@ -294,8 +347,15 @@ func TestFieldBuilder_Clone(t *testing.T) {
 		t.Error("Clone should have the same name")
 	}
 
-	if clone.GetTag() != "test" {
-		t.Error("Clone should have the same tag")
+	// Verify tags are cloned
+	jsonTags := clone.GetJSONTags()
+	if len(jsonTags) != 1 || jsonTags[0] != "test" {
+		t.Error("Clone should have the same JSON tags")
+	}
+
+	validateTags := clone.GetValidateTags()
+	if len(validateTags) != 1 || validateTags[0] != "required" {
+		t.Error("Clone should have the same validate tags")
 	}
 
 	// Verify type builder is cloned
@@ -309,5 +369,107 @@ func TestFieldBuilder_Clone(t *testing.T) {
 	// Clone should be unaffected
 	if clone.GetName() != "test" {
 		t.Error("Clone should be unaffected by original modifications")
+	}
+}
+
+func TestFieldBuilder_TagMethods(t *testing.T) {
+	builder := NewFieldBuilder()
+
+	// Test AddJSONTags
+	builder.AddJSONTags("name", "omitempty")
+	if len(builder.jsonTags) != 2 {
+		t.Errorf("Expected 2 JSON tags, got %d", len(builder.jsonTags))
+	}
+
+	// Test SetJSONTags
+	builder.SetJSONTags("id", "required")
+	if len(builder.jsonTags) != 2 || builder.jsonTags[0] != "id" || builder.jsonTags[1] != "required" {
+		t.Errorf("Expected JSON tags ['id', 'required'], got %v", builder.jsonTags)
+	}
+
+	// Test AddValidateTags
+	builder.AddValidateTags("required", "min=1")
+	if len(builder.validateTags) != 2 {
+		t.Errorf("Expected 2 validate tags, got %d", len(builder.validateTags))
+	}
+
+	// Test SetValidateTags
+	builder.SetValidateTags("max=100")
+	if len(builder.validateTags) != 1 || builder.validateTags[0] != "max=100" {
+		t.Errorf("Expected validate tags ['max=100'], got %v", builder.validateTags)
+	}
+
+	// Test ClearJSONTags
+	builder.ClearJSONTags()
+	if len(builder.jsonTags) != 0 {
+		t.Error("JSON tags should be cleared")
+	}
+
+	// Test ClearValidateTags
+	builder.ClearValidateTags()
+	if len(builder.validateTags) != 0 {
+		t.Error("Validate tags should be cleared")
+	}
+
+	// Test ClearAllTags
+	builder.AddJSONTag("test").AddValidateTag("required")
+	builder.ClearAllTags()
+	if len(builder.jsonTags) != 0 || len(builder.validateTags) != 0 {
+		t.Error("All tags should be cleared")
+	}
+}
+
+func TestFieldBuilder_BuildWithMultipleTags(t *testing.T) {
+	builder := NewFieldBuilder().
+		WithName("field").
+		WithType(String()).
+		AddJSONTags("name", "omitempty").
+		AddValidateTags("required", "min=1")
+
+	field := builder.Build()
+
+	if field.Tag == nil {
+		t.Fatal("Tag should not be nil")
+	}
+
+	expectedTag := "`json:\"name,omitempty\" validate:\"required,min=1\"`"
+	if field.Tag.Value != expectedTag {
+		t.Errorf("Expected tag '%s', got %s", expectedTag, field.Tag.Value)
+	}
+}
+
+func TestFieldBuilder_BuildWithOnlyJSONTags(t *testing.T) {
+	builder := NewFieldBuilder().
+		WithName("field").
+		WithType(String()).
+		AddJSONTag("name")
+
+	field := builder.Build()
+
+	if field.Tag == nil {
+		t.Fatal("Tag should not be nil")
+	}
+
+	expectedTag := "`json:\"name\"`"
+	if field.Tag.Value != expectedTag {
+		t.Errorf("Expected tag '%s', got %s", expectedTag, field.Tag.Value)
+	}
+}
+
+func TestFieldBuilder_BuildWithOnlyValidateTags(t *testing.T) {
+	builder := NewFieldBuilder().
+		WithName("field").
+		WithType(String()).
+		AddValidateTag("required")
+
+	field := builder.Build()
+
+	if field.Tag == nil {
+		t.Fatal("Tag should not be nil")
+	}
+
+	expectedTag := "`validate:\"required\"`"
+	if field.Tag.Value != expectedTag {
+		t.Errorf("Expected tag '%s', got %s", expectedTag, field.Tag.Value)
 	}
 }
