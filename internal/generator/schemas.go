@@ -14,7 +14,6 @@ import (
 
 type SchemasFile struct {
 	requiredFieldsArePointers bool
-	packageImports            []string
 	decls                     []*ast.GenDecl
 	generatedModels           map[string]bool
 }
@@ -230,12 +229,6 @@ func (g *Generator) GetIntegerType(format string) string {
 
 func (g *Generator) AddSchemasImport(path string) {
 	g.SchemasImportsBuilder.AddImport(path)
-	for _, imp := range g.SchemasFile.packageImports {
-		if imp == path {
-			return
-		}
-	}
-	g.SchemasFile.packageImports = append(g.SchemasFile.packageImports, path)
 }
 
 func (g *Generator) GetStringType(format string) string {

@@ -6,7 +6,6 @@ import (
 	"go/format"
 	"go/token"
 	"io"
-	"slices"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-faster/errors"
@@ -17,7 +16,6 @@ import (
 type HandlersFile struct {
 	requiredFieldsArePointers bool
 	packageName               *ast.Ident
-	packageImports            []string
 	interfaceDecls            []*ast.GenDecl
 
 	handlerDecl            *ast.GenDecl
@@ -177,10 +175,6 @@ func (g *Generator) AddDependencyToHandlers(baseName string) {
 
 func (g *Generator) AddHandlersImport(path string) {
 	g.HandlerImportsBuilder.AddImport(path)
-	if slices.Contains(g.HandlersFile.packageImports, path) {
-		return
-	}
-	g.HandlersFile.packageImports = append(g.HandlersFile.packageImports, path)
 }
 
 func (g *Generator) GenerateHandlersFile() *ast.File {
