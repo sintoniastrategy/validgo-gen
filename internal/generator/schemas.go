@@ -91,31 +91,18 @@ func (g *Generator) AddSchema(model SchemaStruct) {
 }
 
 func (g *Generator) AddTypeAlias(name string, typeName string) {
-	g.SchemasFile.decls = append(g.SchemasFile.decls, &ast.GenDecl{
-		Tok: token.TYPE,
-		Specs: []ast.Spec{
-			&ast.TypeSpec{
-				Name: ast.NewIdent(name),
-				Type: &ast.Ident{
-					Name: typeName,
-				},
-			},
-		},
-	})
+	typeAliasBuilder := astbuilder.NewTypeAliasBuilder().WithName(name).WithType(
+		astbuilder.NewSimpleTypeBuilder().AddElement(typeName))
+	decl := typeAliasBuilder.BuildAsDeclaration()
+	g.SchemasFile.decls = append(g.SchemasFile.decls, decl)
 }
 
 func (g *Generator) AddSliceAlias(name string, typeName string) {
-	g.SchemasFile.decls = append(g.SchemasFile.decls, &ast.GenDecl{
-		Tok: token.TYPE,
-		Specs: []ast.Spec{
-			&ast.TypeSpec{
-				Name: ast.NewIdent(name),
-				Type: &ast.ArrayType{
-					Elt: ast.NewIdent(typeName),
-				},
-			},
-		},
-	})
+	typeAliasBuilder := astbuilder.NewTypeAliasBuilder().WithName(name).WithType(
+		astbuilder.NewArrayTypeBuilder().WithElement(
+			astbuilder.NewSimpleTypeBuilder().AddElement(typeName)))
+	decl := typeAliasBuilder.BuildAsDeclaration()
+	g.SchemasFile.decls = append(g.SchemasFile.decls, decl)
 }
 
 func (g *Generator) AddParamsModel(baseName string, paramType string, params openapi3.Parameters) error {

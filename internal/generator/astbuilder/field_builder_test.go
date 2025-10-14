@@ -473,3 +473,156 @@ func TestFieldBuilder_BuildWithOnlyValidateTags(t *testing.T) {
 		t.Errorf("Expected tag '%s', got %s", expectedTag, field.Tag.Value)
 	}
 }
+
+func TestFieldBuilder_WithArrayType(t *testing.T) {
+	// Test with ArrayTypeBuilder
+	builder := NewFieldBuilder().
+		WithName("tags").
+		WithType(StringSlice())
+
+	field := builder.Build()
+
+	if field.Tag != nil {
+		t.Error("Tag should be nil when not set")
+	}
+
+	if len(field.Names) != 1 || field.Names[0].Name != "tags" {
+		t.Error("Field should be named 'tags'")
+	}
+
+	if arrayType, ok := field.Type.(*ast.ArrayType); ok {
+		if ident, ok := arrayType.Elt.(*ast.Ident); ok {
+			if ident.Name != "string" {
+				t.Errorf("Expected array element type 'string', got %s", ident.Name)
+			}
+		} else {
+			t.Error("Array element should be ast.Ident")
+		}
+	} else {
+		t.Error("Field type should be ast.ArrayType")
+	}
+}
+
+func TestFieldBuilder_WithNestedArrayType(t *testing.T) {
+	// Test with nested arrays: [][]string
+	nestedArray := SliceOf(StringSlice())
+	builder := NewFieldBuilder().
+		WithName("matrix").
+		WithType(nestedArray)
+
+	field := builder.Build()
+
+	if outerArrayType, ok := field.Type.(*ast.ArrayType); ok {
+		if innerArrayType, ok := outerArrayType.Elt.(*ast.ArrayType); ok {
+			if ident, ok := innerArrayType.Elt.(*ast.Ident); ok {
+				if ident.Name != "string" {
+					t.Errorf("Expected inner array element type 'string', got %s", ident.Name)
+				}
+			} else {
+				t.Error("Inner array element should be ast.Ident")
+			}
+		} else {
+			t.Error("Inner element should be ast.ArrayType")
+		}
+	} else {
+		t.Error("Outer field type should be ast.ArrayType")
+	}
+}
+
+func TestFieldBuilder_ArrayHelperFunctions(t *testing.T) {
+	// Test StringSliceField
+	stringSliceField := StringSliceField("names")
+	field := stringSliceField.Build()
+
+	if arrayType, ok := field.Type.(*ast.ArrayType); ok {
+		if ident, ok := arrayType.Elt.(*ast.Ident); ok {
+			if ident.Name != "string" {
+				t.Errorf("Expected StringSliceField element type 'string', got %s", ident.Name)
+			}
+		}
+	}
+
+	// Test IntSliceField
+	intSliceField := IntSliceField("scores")
+	field = intSliceField.Build()
+
+	if arrayType, ok := field.Type.(*ast.ArrayType); ok {
+		if ident, ok := arrayType.Elt.(*ast.Ident); ok {
+			if ident.Name != "int" {
+				t.Errorf("Expected IntSliceField element type 'int', got %s", ident.Name)
+			}
+		}
+	}
+
+	// Test BoolSliceField
+	boolSliceField := BoolSliceField("flags")
+	field = boolSliceField.Build()
+
+	if arrayType, ok := field.Type.(*ast.ArrayType); ok {
+		if ident, ok := arrayType.Elt.(*ast.Ident); ok {
+			if ident.Name != "bool" {
+				t.Errorf("Expected BoolSliceField element type 'bool', got %s", ident.Name)
+			}
+		}
+	}
+
+	// Test ContextSliceField
+	contextSliceField := ContextSliceField("contexts")
+	field = contextSliceField.Build()
+
+	if arrayType, ok := field.Type.(*ast.ArrayType); ok {
+		if selector, ok := arrayType.Elt.(*ast.SelectorExpr); ok {
+			if selector.Sel.Name != "Context" {
+				t.Errorf("Expected ContextSliceField element type 'Context', got %s", selector.Sel.Name)
+			}
+		}
+	}
+
+	// Test IdentSliceField
+	identSliceField := IdentSliceField("customTypes", "CustomType")
+	field = identSliceField.Build()
+
+	if arrayType, ok := field.Type.(*ast.ArrayType); ok {
+		if ident, ok := arrayType.Elt.(*ast.Ident); ok {
+			if ident.Name != "CustomType" {
+				t.Errorf("Expected IdentSliceField element type 'CustomType', got %s", ident.Name)
+			}
+		}
+	}
+
+	// Test SelectorSliceField
+	selectorSliceField := SelectorSliceField("responses", "apimodels", "Response")
+	field = selectorSliceField.Build()
+
+	if arrayType, ok := field.Type.(*ast.ArrayType); ok {
+		if selector, ok := arrayType.Elt.(*ast.SelectorExpr); ok {
+			if selector.Sel.Name != "Response" {
+				t.Errorf("Expected SelectorSliceField element type 'Response', got %s", selector.Sel.Name)
+			}
+		}
+	}
+}
+
+func TestFieldBuilder_WithArrayTypeAndTags(t *testing.T) {
+	// Test ArrayTypeBuilder with tags
+	builder := NewFieldBuilder().
+		WithName("items").
+		WithType(StringSlice()).
+		AddJSONTags("items", "omitempty").
+		AddValidateTags("required", "min=1")
+
+	field := builder.Build()
+
+	expectedTag := "`json:\"items,omitempty\" validate:\"required,min=1\"`"
+	if field.Tag.Value != expectedTag {
+		t.Errorf("Expected tag '%s', got %s", expectedTag, field.Tag.Value)
+	}
+
+	if arrayType, ok := field.Type.(*ast.ArrayType); ok {
+		if ident, ok := arrayType.Elt.(*ast.Ident); ok {
+			if ident.Name != "string" {
+				t.Errorf("Expected array element type 'string', got %s", ident.Name)
+			}
+		}
+	}
+}

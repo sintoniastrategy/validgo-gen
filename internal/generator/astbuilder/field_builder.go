@@ -9,7 +9,7 @@ import (
 // FieldBuilder provides a fluent interface for building ast.Field
 type FieldBuilder struct {
 	name         string
-	typeBuilder  *SimpleTypeBuilder
+	typeBuilder  TypeExpressionBuilder
 	jsonTags     []string
 	validateTags []string
 }
@@ -30,13 +30,21 @@ func (fb *FieldBuilder) WithName(name string) *FieldBuilder {
 	return fb
 }
 
-// WithType sets the field type using a SimpleTypeBuilder
+// WithType sets the field type using a TypeExpressionBuilder (SimpleTypeBuilder or ArrayTypeBuilder)
 // Returns the builder for method chaining
-func (fb *FieldBuilder) WithType(typeBuilder *SimpleTypeBuilder) *FieldBuilder {
+func (fb *FieldBuilder) WithType(typeBuilder TypeExpressionBuilder) *FieldBuilder {
 	if typeBuilder == nil {
 		panic("type builder cannot be nil")
 	}
-	fb.typeBuilder = typeBuilder.Clone()
+
+	// Clone the type builder based on its type
+	if stb, ok := typeBuilder.(*SimpleTypeBuilder); ok {
+		fb.typeBuilder = stb.Clone()
+	} else if atb, ok := typeBuilder.(*ArrayTypeBuilder); ok {
+		fb.typeBuilder = atb.Clone()
+	} else {
+		panic("unknown TypeExpressionBuilder type")
+	}
 	return fb
 }
 
@@ -265,7 +273,51 @@ func (fb *FieldBuilder) Clone() *FieldBuilder {
 	copy(clone.jsonTags, fb.jsonTags)
 	copy(clone.validateTags, fb.validateTags)
 	if fb.typeBuilder != nil {
-		clone.typeBuilder = fb.typeBuilder.Clone()
+		// Clone the type builder based on its type
+		if stb, ok := fb.typeBuilder.(*SimpleTypeBuilder); ok {
+			clone.typeBuilder = stb.Clone()
+		} else if atb, ok := fb.typeBuilder.(*ArrayTypeBuilder); ok {
+			clone.typeBuilder = atb.Clone()
+		} else {
+			panic("unknown TypeExpressionBuilder type in Clone")
+		}
 	}
 	return clone
+}
+
+// Helper methods for array field types
+
+// StringSliceField creates a field builder for a []string field
+func StringSliceField(name string) *FieldBuilder {
+	return NewFieldBuilder().WithName(name).WithType(StringSlice())
+}
+
+// IntSliceField creates a field builder for a []int field
+func IntSliceField(name string) *FieldBuilder {
+	return NewFieldBuilder().WithName(name).WithType(IntSlice())
+}
+
+// BoolSliceField creates a field builder for a []bool field
+func BoolSliceField(name string) *FieldBuilder {
+	return NewFieldBuilder().WithName(name).WithType(BoolSlice())
+}
+
+// ErrorSliceField creates a field builder for a []error field
+func ErrorSliceField(name string) *FieldBuilder {
+	return NewFieldBuilder().WithName(name).WithType(ErrorSlice())
+}
+
+// ContextSliceField creates a field builder for a []context.Context field
+func ContextSliceField(name string) *FieldBuilder {
+	return NewFieldBuilder().WithName(name).WithType(ContextSlice())
+}
+
+// IdentSliceField creates a field builder for a []Identifier field
+func IdentSliceField(name, identifier string) *FieldBuilder {
+	return NewFieldBuilder().WithName(name).WithType(IdentSlice(identifier))
+}
+
+// SelectorSliceField creates a field builder for a []package.Type field
+func SelectorSliceField(name, packageName, typeName string) *FieldBuilder {
+	return NewFieldBuilder().WithName(name).WithType(SelectorSlice(packageName, typeName))
 }
