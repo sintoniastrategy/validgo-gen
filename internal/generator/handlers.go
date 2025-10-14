@@ -18,8 +18,11 @@ type HandlersFile struct {
 	packageName               *ast.Ident
 	interfaceDecls            []*ast.GenDecl
 
-	handlerDecl            *ast.GenDecl
-	handlerDeclQAFieldList *ast.FieldList // quick access to handler struct field list
+	/*
+		handlerDecl            *ast.GenDecl
+		handlerDeclQAFieldList *ast.FieldList // quick access to handler struct field list
+	*/
+	handlerDeclBuilder *astbuilder.StructBuilder
 
 	handlerConstructorDecl                       *ast.FuncDecl
 	handlerConstructorDeclQAArgs                 *ast.FieldList    // quick access to handler constructor args
@@ -37,22 +40,9 @@ func (g *Generator) InitHandlerImports() {
 }
 
 func (g *Generator) InitHandlerStruct() {
-	fieldList := &ast.FieldList{
-		List: []*ast.Field{Field("validator", Star(Sel(I("validator"), "Validate")), "")},
-	}
-	handlerDecl := &ast.GenDecl{
-		Tok: token.TYPE,
-		Specs: []ast.Spec{
-			&ast.TypeSpec{
-				Name: I("Handler"),
-				Type: &ast.StructType{
-					Fields: fieldList,
-				},
-			},
-		},
-	}
-	g.HandlersFile.handlerDecl = handlerDecl
-	g.HandlersFile.handlerDeclQAFieldList = fieldList
+	g.HandlersFile.handlerDeclBuilder = astbuilder.NewStructBuilder().WithName("Handler").
+		AddField(astbuilder.NewFieldBuilder().WithName("validator").WithType(
+			astbuilder.NewSimpleTypeBuilder().AddElements("validator", "Validate").AsPointer(true)))
 }
 
 func (g *Generator) InitHandlerConstructor() {
@@ -159,8 +149,9 @@ func (g *Generator) AddHandlersInterface(name string, methodName string, request
 func (g *Generator) AddDependencyToHandlers(baseName string) {
 	fieldName := GoIdentLowercase(baseName)
 
-	g.HandlersFile.handlerDeclQAFieldList.List = append(g.HandlersFile.handlerDeclQAFieldList.List,
-		Field(fieldName, I(baseName+"Handler"), ""))
+	g.HandlersFile.handlerDeclBuilder.AddField(
+		astbuilder.NewFieldBuilder().WithName(fieldName).WithType(
+			astbuilder.NewSimpleTypeBuilder().AddElement(baseName + "Handler")))
 
 	g.HandlersFile.handlerConstructorDeclQAArgs.List = append(g.HandlersFile.handlerConstructorDeclQAArgs.List,
 		Field(fieldName, I(baseName+"Handler"), ""))
@@ -196,7 +187,7 @@ func (g *Generator) GenerateHandlersFile() *ast.File {
 		file.Decls = append(file.Decls, d)
 	}
 
-	file.Decls = append(file.Decls, g.HandlersFile.handlerDecl)
+	file.Decls = append(file.Decls, g.HandlersFile.handlerDeclBuilder.BuildAsDeclaration())
 	file.Decls = append(file.Decls, g.HandlersFile.handlerConstructorDecl)
 	file.Decls = append(file.Decls, g.HandlersFile.addRoutesDecl)
 	for _, d := range g.HandlersFile.restDecls {
