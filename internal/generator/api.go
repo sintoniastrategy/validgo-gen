@@ -11,7 +11,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-faster/errors"
-	"github.com/jolfzverb/codegen/internal/generator/options"
+	"github.com/sintoniastrategy/validgo-gen/internal/generator/options"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )

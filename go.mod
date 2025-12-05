@@ -1,4 +1,4 @@
-module github.com/jolfzverb/codegen
+module github.com/sintoniastrategy/validgo-gen
 
 go 1.24
 

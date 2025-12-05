@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jolfzverb/codegen/internal/generator"
-	"github.com/jolfzverb/codegen/internal/generator/options"
+	"github.com/sintoniastrategy/validgo-gen/internal/generator"
+	"github.com/sintoniastrategy/validgo-gen/internal/generator/options"
 	"github.com/sebdah/goldie/v2"
 	"github.com/stretchr/testify/assert"
 )
@@ -17,7 +17,7 @@ func TestGeneratorCreatesFiles(t *testing.T) {
 
 	opts := &options.Options{
 		DirPrefix:     tmpDir,
-		PackagePrefix: "github.com/jolfzverb/codegen/test/testdata",
+		PackagePrefix: "github.com/sintoniastrategy/validgo-gen/test/testdata",
 		YAMLFiles: []string{
 			"yamls/api.yaml",
 			"yamls/api2.yaml",

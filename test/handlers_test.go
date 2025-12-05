@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jolfzverb/codegen/internal/usage/generated/api"
-	"github.com/jolfzverb/codegen/internal/usage/generated/api/apimodels"
+	"github.com/sintoniastrategy/validgo-gen/internal/usage/generated/api"
+	"github.com/sintoniastrategy/validgo-gen/internal/usage/generated/api/apimodels"
 	"github.com/stretchr/testify/assert"
 )
 

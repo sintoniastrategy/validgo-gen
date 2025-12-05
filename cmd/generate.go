@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 
-	"github.com/jolfzverb/codegen/internal/generator"
-	"github.com/jolfzverb/codegen/internal/generator/options"
+	"github.com/sintoniastrategy/validgo-gen/internal/generator"
+	"github.com/sintoniastrategy/validgo-gen/internal/generator/options"
 )
 
 func main() {
