@@ -4,12 +4,24 @@ package api3models
 
 import "github.com/sintoniastrategy/validgo-gen/test/testdata/generated/def/defmodels"
 
-type CreateRequest struct {
+type ListResourcesRequest struct {
 }
-type CreateResponse200 struct {
+type ListResourcesResponse200 struct {
 	Body defmodels.NewResourseResponse
 }
-type CreateResponse struct {
+type ListResourcesResponse struct {
 	StatusCode  int
-	Response200 *CreateResponse200
+	Response200 *ListResourcesResponse200
+}
+type DeleteResourcePathParams struct {
+	ID string `json:"id" validate:"required"`
+}
+type DeleteResourceRequest struct {
+	Path DeleteResourcePathParams
+}
+type DeleteResourceResponse200 struct {
+}
+type DeleteResourceResponse struct {
+	StatusCode  int
+	Response200 *DeleteResourceResponse200
 }

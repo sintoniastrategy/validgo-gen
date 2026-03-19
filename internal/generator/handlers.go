@@ -320,6 +320,31 @@ func (g *Generator) CreateHandler(baseName string) {
 	g.HandlersFile.handleDeclQASwitches[baseName] = switchBody
 }
 
+// CreateDirectHandler generates a handler that directly delegates to the request handler
+// without checking Content-Type. Used for operations with no request body (e.g. GET, DELETE)
+// where Content-Type is irrelevant.
+func (g *Generator) CreateDirectHandler(baseName string) {
+	handleFunc := Func(
+		"handle"+baseName,
+		Field("h", Star(I("Handler")), ""),
+		[]*ast.Field{
+			Field("w", Sel(I("http"), "ResponseWriter"), ""),
+			Field("r", Star(Sel(I("http"), "Request")), ""),
+		},
+		nil,
+		[]ast.Stmt{
+			&ast.ExprStmt{
+				X: &ast.CallExpr{
+					Fun:  Sel(I("h"), "handle"+baseName+"Request"),
+					Args: []ast.Expr{I("w"), I("r")},
+				},
+			},
+		},
+	)
+
+	g.HandlersFile.restDecls = append(g.HandlersFile.restDecls, handleFunc)
+}
+
 func (g *Generator) FinalizeHandlerSwitches() {
 	if g.HandlersFile.handleDeclQASwitches == nil {
 		return

@@ -6,12 +6,25 @@ info:
 paths:
   /path/to/resourse:
     get:
-      operationId: create
-      summary: Create new resource
+      operationId: list-resources
+      summary: List resources
       responses:
         '200':
-          description: Resource created successfully
+          description: Resources listed successfully
           content:
             application/json:
               schema:
-                $ref: 'def.yaml#/components/schemas/NewResourseResponse'    
+                $ref: 'def.yaml#/components/schemas/NewResourseResponse'
+  /path/to/resourse/{id}:
+    delete:
+      operationId: delete-resource
+      summary: Delete resource
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource deleted successfully
