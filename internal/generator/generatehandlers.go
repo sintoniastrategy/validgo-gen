@@ -256,7 +256,11 @@ func (g *Generator) ProcessApplicationJSONOperation(pathName string, method stri
 		return errors.Wrap(err, op)
 	}
 	g.AddHandleOperationMethod(handlerBaseName)
-	g.AddContentTypeToHandler(handlerBaseName, contentType)
+	if operation.RequestBody != nil {
+		g.AddContentTypeToHandler(handlerBaseName, contentType)
+	} else {
+		g.CreateDirectHandler(handlerBaseName)
+	}
 
 	return nil
 }

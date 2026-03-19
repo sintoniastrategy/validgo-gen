@@ -5,6 +5,7 @@ import (
 	"go/format"
 	"go/token"
 	"io"
+	"slices"
 	"sort"
 	"strings"
 
@@ -301,10 +302,8 @@ func (g *Generator) GetIntegerType(format string) string {
 }
 
 func (g *Generator) AddSchemasImport(path string) {
-	for _, imp := range g.SchemasFile.packageImports {
-		if imp == path {
-			return
-		}
+	if slices.Contains(g.SchemasFile.packageImports, path) {
+		return
 	}
 	g.SchemasFile.packageImports = append(g.SchemasFile.packageImports, path)
 }

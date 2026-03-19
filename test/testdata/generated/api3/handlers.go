@@ -9,32 +9,38 @@ import (
 	"net/http"
 	"strconv"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-faster/errors"
 	"github.com/go-playground/validator/v10"
 	"github.com/sintoniastrategy/validgo-gen/test/testdata/generated/api3/api3models"
 	"github.com/sintoniastrategy/validgo-gen/test/testdata/generated/def/defmodels"
 )
 
-type CreateHandler interface {
-	HandleCreate(ctx context.Context, r api3models.CreateRequest) (*api3models.CreateResponse, error)
+type ListResourcesHandler interface {
+	HandleListResources(ctx context.Context, r api3models.ListResourcesRequest) (*api3models.ListResourcesResponse, error)
+}
+type DeleteResourceHandler interface {
+	HandleDeleteResource(ctx context.Context, r api3models.DeleteResourceRequest) (*api3models.DeleteResourceResponse, error)
 }
 type Handler struct {
-	validator *validator.Validate
-	create    CreateHandler
+	validator      *validator.Validate
+	listResources  ListResourcesHandler
+	deleteResource DeleteResourceHandler
 }
 
-func NewHandler(create CreateHandler) *Handler {
-	return &Handler{validator: validator.New(validator.WithRequiredStructEnabled()), create: create}
+func NewHandler(listResources ListResourcesHandler, deleteResource DeleteResourceHandler) *Handler {
+	return &Handler{validator: validator.New(validator.WithRequiredStructEnabled()), listResources: listResources, deleteResource: deleteResource}
 }
 func (h *Handler) AddRoutes(router chi.Router) {
-	router.Get("/path/to/resourse", h.handleCreate)
+	router.Get("/path/to/resourse", h.handleListResources)
+	router.Delete("/path/to/resourse/{id}", h.handleDeleteResource)
 }
-func (h *Handler) parseCreateRequest(r *http.Request) (*api3models.CreateRequest, error) {
-	return &api3models.CreateRequest{}, nil
+func (h *Handler) parseListResourcesRequest(r *http.Request) (*api3models.ListResourcesRequest, error) {
+	return &api3models.ListResourcesRequest{}, nil
 }
-func Create200Response(body defmodels.NewResourseResponse) *api3models.CreateResponse {
-	return &api3models.CreateResponse{StatusCode: 200, Response200: &api3models.CreateResponse200{Body: body}}
+func ListResources200Response(body defmodels.NewResourseResponse) *api3models.ListResourcesResponse {
+	return &api3models.ListResourcesResponse{StatusCode: 200, Response200: &api3models.ListResourcesResponse200{Body: body}}
 }
-func (h *Handler) writeCreate200Response(w http.ResponseWriter, r *api3models.CreateResponse200) {
+func (h *Handler) writeListResources200Response(w http.ResponseWriter, r *api3models.ListResourcesResponse200) {
 	var err error
 	err = json.NewEncoder(w).Encode(r.Body)
 	if err != nil {
@@ -42,7 +48,7 @@ func (h *Handler) writeCreate200Response(w http.ResponseWriter, r *api3models.Cr
 		return
 	}
 }
-func (h *Handler) writeCreateResponse(w http.ResponseWriter, response *api3models.CreateResponse) {
+func (h *Handler) writeListResourcesResponse(w http.ResponseWriter, response *api3models.ListResourcesResponse) {
 	switch response.StatusCode {
 	case 200:
 		if response.Response200 == nil {
@@ -51,36 +57,82 @@ func (h *Handler) writeCreateResponse(w http.ResponseWriter, response *api3model
 		}
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.WriteHeader(response.StatusCode)
-		h.writeCreate200Response(w, response.Response200)
+		h.writeListResources200Response(w, response.Response200)
 		return
 	}
 	http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
 }
-func (h *Handler) handleCreateRequest(w http.ResponseWriter, r *http.Request) {
-	request, err := h.parseCreateRequest(r)
+func (h *Handler) handleListResourcesRequest(w http.ResponseWriter, r *http.Request) {
+	request, err := h.parseListResourcesRequest(r)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("{\"error\":%s}", strconv.Quote(err.Error())), http.StatusBadRequest)
 		return
 	}
 	ctx := r.Context()
-	response, err := h.create.HandleCreate(ctx, *request)
+	response, err := h.listResources.HandleListResources(ctx, *request)
 	if err != nil || response == nil {
 		http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
 		return
 	}
-	h.writeCreateResponse(w, response)
+	h.writeListResourcesResponse(w, response)
 	return
 }
-func (h *Handler) handleCreate(w http.ResponseWriter, r *http.Request) {
-	switch r.Header.Get("Content-Type") {
-	case "application/json":
-		h.handleCreateRequest(w, r)
-		return
-	case "":
-		h.handleCreateRequest(w, r)
-		return
-	default:
-		http.Error(w, "{\"error\":\"Unsupported Content-Type\"}", http.StatusUnsupportedMediaType)
+func (h *Handler) handleListResources(w http.ResponseWriter, r *http.Request) {
+	h.handleListResourcesRequest(w, r)
+}
+func (h *Handler) parseDeleteResourcePathParams(r *http.Request) (*api3models.DeleteResourcePathParams, error) {
+	var pathParams api3models.DeleteResourcePathParams
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		return nil, errors.New("id path param is required")
+	}
+	pathParams.ID = id
+	err := h.validator.Struct(pathParams)
+	if err != nil {
+		return nil, err
+	}
+	return &pathParams, nil
+}
+func (h *Handler) parseDeleteResourceRequest(r *http.Request) (*api3models.DeleteResourceRequest, error) {
+	pathParams, err := h.parseDeleteResourcePathParams(r)
+	if err != nil {
+		return nil, err
+	}
+	return &api3models.DeleteResourceRequest{Path: *pathParams}, nil
+}
+func DeleteResource200Response() *api3models.DeleteResourceResponse {
+	return &api3models.DeleteResourceResponse{StatusCode: 200, Response200: &api3models.DeleteResourceResponse200{}}
+}
+func (h *Handler) writeDeleteResource200Response(w http.ResponseWriter, r *api3models.DeleteResourceResponse200) {
+}
+func (h *Handler) writeDeleteResourceResponse(w http.ResponseWriter, response *api3models.DeleteResourceResponse) {
+	switch response.StatusCode {
+	case 200:
+		if response.Response200 == nil {
+			http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(response.StatusCode)
+		h.writeDeleteResource200Response(w, response.Response200)
 		return
 	}
+	http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+}
+func (h *Handler) handleDeleteResourceRequest(w http.ResponseWriter, r *http.Request) {
+	request, err := h.parseDeleteResourceRequest(r)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("{\"error\":%s}", strconv.Quote(err.Error())), http.StatusBadRequest)
+		return
+	}
+	ctx := r.Context()
+	response, err := h.deleteResource.HandleDeleteResource(ctx, *request)
+	if err != nil || response == nil {
+		http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+		return
+	}
+	h.writeDeleteResourceResponse(w, response)
+	return
+}
+func (h *Handler) handleDeleteResource(w http.ResponseWriter, r *http.Request) {
+	h.handleDeleteResourceRequest(w, r)
 }

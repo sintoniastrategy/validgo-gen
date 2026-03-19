@@ -903,17 +903,7 @@ func (h *Handler) handleGetExample2Request(w http.ResponseWriter, r *http.Reques
 	return
 }
 func (h *Handler) handleGetExample2(w http.ResponseWriter, r *http.Request) {
-	switch r.Header.Get("Content-Type") {
-	case "application/json":
-		h.handleGetExample2Request(w, r)
-		return
-	case "":
-		h.handleGetExample2Request(w, r)
-		return
-	default:
-		http.Error(w, "{\"error\":\"Unsupported Content-Type\"}", http.StatusUnsupportedMediaType)
-		return
-	}
+	h.handleGetExample2Request(w, r)
 }
 func (h *Handler) parsePostExampleParamNamePathParams(r *http.Request) (*packagenamemodels.PostExampleParamNamePathParams, error) {
 	var pathParams packagenamemodels.PostExampleParamNamePathParams
@@ -1609,17 +1599,7 @@ func (h *Handler) handleOpRequest(w http.ResponseWriter, r *http.Request) {
 	return
 }
 func (h *Handler) handleOp(w http.ResponseWriter, r *http.Request) {
-	switch r.Header.Get("Content-Type") {
-	case "application/json":
-		h.handleOpRequest(w, r)
-		return
-	case "":
-		h.handleOpRequest(w, r)
-		return
-	default:
-		http.Error(w, "{\"error\":\"Unsupported Content-Type\"}", http.StatusUnsupportedMediaType)
-		return
-	}
+	h.handleOpRequest(w, r)
 }
 `,
 		},
