@@ -73,6 +73,10 @@ func (h *petHandler) HandleUpdatePet(
 
 - **[Why validgo-gen](docs/comparison/)** — In-depth comparison of ogen, oapi-codegen, go-swagger, and openapi-generator with code examples — and why none of them solve the validation problem.
 
+## TODO
+
+- **AST builder refactor** (`feat/prepare-for-vibecoding`) — Replace direct `go/ast` node construction in `handlers.go` and `schemas.go` with a structured builder API (`internal/generator/astbuilder/`). The current generator builds AST nodes inline, which works but makes the code hard for AI coding assistants to modify safely. The builder provides a higher-level API (struct builder, handler builder, validation builder, etc.) so that future feature work — especially AI-assisted — can manipulate generation logic without understanding raw `go/ast` internals.
+
 ## License
 
 MIT (Usishchev Yury, 2025)
