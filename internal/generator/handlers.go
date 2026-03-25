@@ -289,6 +289,8 @@ func (g *Generator) GetHandler(baseName string) *ast.BlockStmt {
 }
 
 func (g *Generator) CreateHandler(baseName string) {
+	g.AddHandlersImport("mime")
+
 	switchBody := &ast.BlockStmt{
 		List: []ast.Stmt{},
 	}
@@ -302,11 +304,28 @@ func (g *Generator) CreateHandler(baseName string) {
 		},
 		nil,
 		[]ast.Stmt{
-			&ast.SwitchStmt{
-				Tag: &ast.CallExpr{
-					Fun:  Sel(I("r.Header"), "Get"),
-					Args: []ast.Expr{Str("Content-Type")},
+			// contentType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+			&ast.AssignStmt{
+				Lhs: []ast.Expr{
+					I("contentType"),
+					I("_"),
+					I("_"),
 				},
+				Tok: token.DEFINE,
+				Rhs: []ast.Expr{
+					&ast.CallExpr{
+						Fun: Sel(I("mime"), "ParseMediaType"),
+						Args: []ast.Expr{
+							&ast.CallExpr{
+								Fun:  Sel(I("r.Header"), "Get"),
+								Args: []ast.Expr{Str("Content-Type")},
+							},
+						},
+					},
+				},
+			},
+			&ast.SwitchStmt{
+				Tag:  I("contentType"),
 				Body: switchBody,
 			},
 		},
@@ -387,13 +406,18 @@ func (g *Generator) AddContentTypeHandler(baseName string, rawContentType string
 			Ret(),
 		}
 
+		// Use the normalized (base) media type for the switch case,
+		// since the generated handler now parses the Content-Type header
+		// with mime.ParseMediaType before switching.
+		normalizedCT := parseMediaType(rawContentType)
+
 		blockStmt.List = append(blockStmt.List, &ast.CaseClause{
-			List: []ast.Expr{Str(rawContentType)},
+			List: []ast.Expr{Str(normalizedCT)},
 			Body: stmts,
 		},
 		)
 
-		if rawContentType == applicationJSONCT {
+		if normalizedCT == applicationJSONCT {
 			blockStmt.List = append(blockStmt.List, &ast.CaseClause{
 				List: []ast.Expr{Str("")},
 				Body: stmts,

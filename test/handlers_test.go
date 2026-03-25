@@ -90,6 +90,24 @@ func TestHandler(t *testing.T) {
 		assert.Equal(t, "value1", responseBody["enum-val"])
 		assert.Equal(t, "13.42", responseBody["decimal-field"])
 	})
+	t.Run("200 with Content-Type charset", func(t *testing.T) {
+		requestBody := `{"name": "value", "description": "descr", "date": "2023-10-01T00:00:00+03:00", "code_for_response": 200, "enum-val": "value1", "decimal-field": "13.42"}`
+		request, err := http.NewRequest(http.MethodPost, server.URL+"/path/to/param/resourse?count=3", bytes.NewBufferString(requestBody))
+		assert.NoError(t, err)
+		request.Header.Set("Content-Type", "application/json; charset=utf-8")
+		request.Header.Set("Idempotency-Key", "unique-idempotency-key")
+		request.Header.Set("Optional-Header", "2023-10-01T00:00:00+03:00")
+		request.Header.Set("Cookie", "required-cookie-param=required-value")
+		resp, err := http.DefaultClient.Do(request)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+		defer resp.Body.Close()
+		var responseBody map[string]any
+		err = json.NewDecoder(resp.Body).Decode(&responseBody)
+		assert.NoError(t, err)
+		assert.Equal(t, "value", responseBody["name"])
+	})
 	t.Run("404", func(t *testing.T) {
 		requestBody := `{"name": "value", "description": "descr", "code_for_response": 404}`
 		request, err := http.NewRequest(http.MethodPost, server.URL+"/path/to/param/resourse?count=3", bytes.NewBufferString(requestBody))
