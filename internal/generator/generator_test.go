@@ -839,6 +839,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"mime"
 	"net/http"
 	"strconv"
 	"github.com/go-chi/chi/v5"
@@ -1064,7 +1065,8 @@ func (h *Handler) handlePostExampleParamNameRequest(w http.ResponseWriter, r *ht
 	return
 }
 func (h *Handler) handlePostExampleParamName(w http.ResponseWriter, r *http.Request) {
-	switch r.Header.Get("Content-Type") {
+	contentType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	switch contentType {
 	case "application/json":
 		h.handlePostExampleParamNameRequest(w, r)
 		return
@@ -1161,6 +1163,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"mime"
 	"net/http"
 	"strconv"
 	"github.com/go-chi/chi/v5"
@@ -1244,7 +1247,8 @@ func (h *Handler) handlePostExampleRequest(w http.ResponseWriter, r *http.Reques
 	return
 }
 func (h *Handler) handlePostExample(w http.ResponseWriter, r *http.Request) {
-	switch r.Header.Get("Content-Type") {
+	contentType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	switch contentType {
 	case "application/json":
 		h.handlePostExampleRequest(w, r)
 		return
@@ -1345,6 +1349,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"mime"
 	"net/http"
 	"strconv"
 	"github.com/go-chi/chi/v5"
@@ -1428,7 +1433,8 @@ func (h *Handler) handleOpRequest(w http.ResponseWriter, r *http.Request) {
 	return
 }
 func (h *Handler) handleOp(w http.ResponseWriter, r *http.Request) {
-	switch r.Header.Get("Content-Type") {
+	contentType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	switch contentType {
 	case "application/json":
 		h.handleOpRequest(w, r)
 		return
@@ -1685,6 +1691,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"mime"
 	"net/http"
 	"strconv"
 	"github.com/go-chi/chi/v5"
@@ -1771,7 +1778,8 @@ func (h *Handler) handleOpRequest(w http.ResponseWriter, r *http.Request) {
 	return
 }
 func (h *Handler) handleOp(w http.ResponseWriter, r *http.Request) {
-	switch r.Header.Get("Content-Type") {
+	contentType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	switch contentType {
 	case "application/json":
 		h.handleOpRequest(w, r)
 		return

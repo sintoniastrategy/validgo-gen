@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"mime"
 	"net/http"
 	"strconv"
 	"time"
@@ -308,7 +309,8 @@ func (h *Handler) handleCreateRequest(w http.ResponseWriter, r *http.Request) {
 	return
 }
 func (h *Handler) handleCreate(w http.ResponseWriter, r *http.Request) {
-	switch r.Header.Get("Content-Type") {
+	contentType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	switch contentType {
 	case "application/json":
 		h.handleCreateRequest(w, r)
 		return
