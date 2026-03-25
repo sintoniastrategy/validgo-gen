@@ -1,7 +1,6 @@
 package generator
 
 import (
-	"mime"
 	"sort"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -9,19 +8,6 @@ import (
 )
 
 const applicationJSONCT = "application/json"
-
-// parseMediaType extracts the base media type from a content type string,
-// stripping parameters (e.g. "charset=utf-8") and handling edge cases like
-// comma-separated values. For example:
-//   - "application/json; charset=utf-8" returns "application/json"
-//   - "application/json; charset=utf-8, application/json" returns "application/json"
-func parseMediaType(rawContentType string) string {
-	mediaType, _, _ := mime.ParseMediaType(rawContentType)
-	if mediaType == "" {
-		return rawContentType
-	}
-	return mediaType
-}
 
 func (g *Generator) AddInterface(baseName string) {
 	interfaceName := baseName + "Handler"
@@ -289,7 +275,7 @@ func (g *Generator) ProcessOperation(pathName string, method string, operation *
 		}
 		sort.Strings(contentKeys)
 		for _, contentType := range contentKeys {
-			switch parseMediaType(contentType) {
+			switch contentType {
 			case applicationJSONCT:
 				err := g.ProcessApplicationJSONOperation(pathName, method, contentType, operation)
 				if err != nil {

@@ -406,18 +406,13 @@ func (g *Generator) AddContentTypeHandler(baseName string, rawContentType string
 			Ret(),
 		}
 
-		// Use the normalized (base) media type for the switch case,
-		// since the generated handler now parses the Content-Type header
-		// with mime.ParseMediaType before switching.
-		normalizedCT := parseMediaType(rawContentType)
-
 		blockStmt.List = append(blockStmt.List, &ast.CaseClause{
-			List: []ast.Expr{Str(normalizedCT)},
+			List: []ast.Expr{Str(rawContentType)},
 			Body: stmts,
 		},
 		)
 
-		if normalizedCT == applicationJSONCT {
+		if rawContentType == applicationJSONCT {
 			blockStmt.List = append(blockStmt.List, &ast.CaseClause{
 				List: []ast.Expr{Str("")},
 				Body: stmts,
