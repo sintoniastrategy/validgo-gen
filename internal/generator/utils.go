@@ -32,7 +32,7 @@ func GetSchemaValidators(schema *openapi3.SchemaRef) []string {
 					slog.Warn("enum value is not a string", slog.Any("value", enumValue))
 					enumStrValue = fmt.Sprintf("%v", enumValue)
 				}
-				if strings.Contains(enumStrValue, " ") {
+				if enumStrValue == "" || strings.Contains(enumStrValue, " ") {
 					enumStrValue = "'" + enumStrValue + "'"
 				}
 				enumStrValues = append(enumStrValues, enumStrValue)
