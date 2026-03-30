@@ -73,6 +73,34 @@ func TestStrings(t *testing.T) {
 	})
 }
 
+func TestEnumWithEmptyString(t *testing.T) {
+	type Model struct {
+		Field *string `json:"field,omitempty" validate:"omitempty,oneof='' WinXP Win78 Win10"`
+	}
+	v := validator.New(validator.WithRequiredStructEnabled())
+
+	ptr := func(s string) *string { return &s }
+	for _, tc := range []struct {
+		name  string
+		field *string
+		valid bool
+	}{
+		{"empty string", ptr(""), true},
+		{"known value", ptr("WinXP"), true},
+		{"unknown value", ptr("Linux"), false},
+		{"nil omitempty", nil, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := v.Struct(&Model{Field: tc.field})
+			if tc.valid {
+				assert.NoError(t, err)
+			} else {
+				assert.Error(t, err)
+			}
+		})
+	}
+}
+
 func TestArrayValidatorsDive(t *testing.T) {
 	type ObjectModelArrayField []string
 	type ObjectModel struct {
