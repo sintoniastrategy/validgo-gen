@@ -26,6 +26,27 @@ func containsNull(data json.RawMessage) bool {
 	}
 	return temp == nil
 }
+func ValidateErrorResponseJSON(jsonData json.RawMessage) error {
+	requiredFields := map[string]bool{"code": true, "message": true}
+	nullableFields := map[string]bool{}
+	var obj map[string]json.RawMessage
+	err := json.Unmarshal(jsonData, &obj)
+	if err != nil {
+		return err
+	}
+	var val json.RawMessage
+	var exists bool
+	for field := range requiredFields {
+		val, exists = obj[field]
+		if !exists {
+			return errors.New("field " + field + " is required")
+		}
+		if !nullableFields[field] && containsNull(val) {
+			return errors.New("field " + field + " cannot be null")
+		}
+	}
+	return nil
+}
 func ValidateNewResourseRequestJSON(jsonData json.RawMessage) error {
 	requiredFields := map[string]bool{"name": true}
 	nullableFields := map[string]bool{}

@@ -1,0 +1,25 @@
+openapi: 3.0.0
+info:
+  title: Sample API
+  version: 1.0.0
+
+paths:
+  /path/to/{id}:
+    get:
+      operationId: get-resource
+      summary: Get resource by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource found
+          content:
+            application/json:
+              schema:
+                $ref: 'def.yaml#/components/schemas/NewResourseResponse'
+        '404':
+          $ref: 'def.yaml#/components/responses/NotFound'
