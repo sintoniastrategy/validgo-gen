@@ -4,6 +4,10 @@ package defmodels
 
 import "time"
 
+type ErrorResponse struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
 type NewResourseRequest struct {
 	Description *string `json:"description,omitempty" validate:"omitempty"`
 	Name        string  `json:"name"`

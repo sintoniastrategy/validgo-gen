@@ -44,6 +44,20 @@ func (g *Generator) GetYAMLFilePath(filename string) string {
 	return path.Join(yamlDir, filename)
 }
 
+func resolveSchemaRefAgainstResponse(responseRef, schemaRef string) string {
+	if schemaRef == "" || refIsExternal(schemaRef) {
+		return schemaRef
+	}
+	if responseRef == "" || !refIsExternal(responseRef) {
+		return schemaRef
+	}
+	filename := parseFilenameFromRef(responseRef)
+	if filename == "" {
+		return schemaRef
+	}
+	return filename + schemaRef
+}
+
 func (g *Generator) ParseRefTypeName(ref string) (string, string) {
 	parts := strings.Split(ref, "/")
 	if len(parts) == 0 {

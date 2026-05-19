@@ -47,16 +47,17 @@ func (g *Generator) AddResponseCodeModels(baseName string, code string, response
 	}
 	for _, content := range response.Value.Content {
 		if content.Schema != nil {
-			if content.Schema.Ref == "" {
+			schemaRef := resolveSchemaRefAgainstResponse(response.Ref, content.Schema.Ref)
+			if schemaRef == "" {
 				err := g.ProcessSchema(baseName+"Response"+code+"Body", content.Schema)
 				if err != nil {
 					return errors.Wrap(err, op)
 				}
 			}
 			typeName := baseName + "Response" + code + "Body"
-			if content.Schema.Ref != "" {
+			if schemaRef != "" {
 				var importPath string
-				typeName, importPath = g.ParseRefTypeName(content.Schema.Ref)
+				typeName, importPath = g.ParseRefTypeName(schemaRef)
 				if importPath != "" {
 					g.AddSchemasImport(importPath)
 				}

@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/sebdah/goldie/v2"
 	"github.com/sintoniastrategy/validgo-gen/internal/generator"
 	"github.com/sintoniastrategy/validgo-gen/internal/generator/options"
-	"github.com/sebdah/goldie/v2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -22,6 +22,7 @@ func TestGeneratorCreatesFiles(t *testing.T) {
 			"yamls/api.yaml",
 			"yamls/api2.yaml",
 			"yamls/api3.yaml",
+			"yamls/api4.yaml",
 			"yamls/def.yaml",
 		},
 		RequiredFieldsArePointers: false,
@@ -41,6 +42,8 @@ func TestGeneratorCreatesFiles(t *testing.T) {
 		"generated/api2/api2models/models.go",
 		"generated/api3/handlers.go",
 		"generated/api3/api3models/models.go",
+		"generated/api4/handlers.go",
+		"generated/api4/api4models/models.go",
 		"generated/def/handlers.go",
 		"generated/def/defmodels/models.go",
 	}

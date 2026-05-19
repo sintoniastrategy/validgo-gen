@@ -743,9 +743,10 @@ func (g *Generator) AddCreateResponseModel(baseName string, code string, respons
 			var astType ast.Expr
 			astType = Sel(I(g.GetCurrentModelsPackage()), typeName)
 			if json.Schema.Ref != "" {
+				schemaRef := resolveSchemaRefAgainstResponse(response.Ref, json.Schema.Ref)
 				var importPath string
-				typeName, importPath = g.ParseRefTypeName(json.Schema.Ref)
-				if refIsExternal(json.Schema.Ref) {
+				typeName, importPath = g.ParseRefTypeName(schemaRef)
+				if refIsExternal(schemaRef) {
 					astType = I(typeName)
 				} else {
 					astType = Sel(I(g.GetCurrentModelsPackage()), typeName)
