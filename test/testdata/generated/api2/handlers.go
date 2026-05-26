@@ -58,7 +58,7 @@ func (h *Handler) parseCreateRequest(r *http.Request) (*api2models.CreateRequest
 	}
 	return &api2models.CreateRequest{Body: *body}, nil
 }
-func Create200Response(body defmodels.NewResourseResponse) *api2models.CreateResponse {
+func Create200(body defmodels.NewResourseResponse) *api2models.CreateResponse {
 	return &api2models.CreateResponse{StatusCode: 200, Response200: &api2models.CreateResponse200{Body: body}}
 }
 func (h *Handler) writeCreate200Response(w http.ResponseWriter, r *api2models.CreateResponse200) {

@@ -49,7 +49,7 @@ func (h *Handler) parseGetResourceRequest(r *http.Request) (*api4models.GetResou
 	}
 	return &api4models.GetResourceRequest{Path: *pathParams}, nil
 }
-func GetResource200Response(body defmodels.NewResourseResponse) *api4models.GetResourceResponse {
+func GetResource200(body defmodels.NewResourseResponse) *api4models.GetResourceResponse {
 	return &api4models.GetResourceResponse{StatusCode: 200, Response200: &api4models.GetResourceResponse200{Body: body}}
 }
 func (h *Handler) writeGetResource200Response(w http.ResponseWriter, r *api4models.GetResourceResponse200) {
@@ -60,7 +60,7 @@ func (h *Handler) writeGetResource200Response(w http.ResponseWriter, r *api4mode
 		return
 	}
 }
-func GetResource404Response(body defmodels.ErrorResponse) *api4models.GetResourceResponse {
+func GetResource404(body defmodels.ErrorResponse) *api4models.GetResourceResponse {
 	return &api4models.GetResourceResponse{StatusCode: 404, Response404: &api4models.GetResourceResponse404{Body: body}}
 }
 func (h *Handler) writeGetResource404Response(w http.ResponseWriter, r *api4models.GetResourceResponse404) {

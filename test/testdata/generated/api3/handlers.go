@@ -37,7 +37,7 @@ func (h *Handler) AddRoutes(router chi.Router) {
 func (h *Handler) parseListResourcesRequest(r *http.Request) (*api3models.ListResourcesRequest, error) {
 	return &api3models.ListResourcesRequest{}, nil
 }
-func ListResources200Response(body defmodels.NewResourseResponse) *api3models.ListResourcesResponse {
+func ListResources200(body defmodels.NewResourseResponse) *api3models.ListResourcesResponse {
 	return &api3models.ListResourcesResponse{StatusCode: 200, Response200: &api3models.ListResourcesResponse200{Body: body}}
 }
 func (h *Handler) writeListResources200Response(w http.ResponseWriter, r *api3models.ListResourcesResponse200) {
@@ -100,7 +100,7 @@ func (h *Handler) parseDeleteResourceRequest(r *http.Request) (*api3models.Delet
 	}
 	return &api3models.DeleteResourceRequest{Path: *pathParams}, nil
 }
-func DeleteResource200Response() *api3models.DeleteResourceResponse {
+func DeleteResource200() *api3models.DeleteResourceResponse {
 	return &api3models.DeleteResourceResponse{StatusCode: 200, Response200: &api3models.DeleteResourceResponse200{}}
 }
 func (h *Handler) writeDeleteResource200Response(w http.ResponseWriter, r *api3models.DeleteResourceResponse200) {

@@ -870,7 +870,7 @@ func (h *Handler) AddRoutes(router chi.Router) {
 func (h *Handler) parseGetExample2Request(r *http.Request) (*packagenamemodels.GetExample2Request, error) {
 	return &packagenamemodels.GetExample2Request{}, nil
 }
-func GetExample2200Response() *packagenamemodels.GetExample2Response {
+func GetExample2200() *packagenamemodels.GetExample2Response {
 	return &packagenamemodels.GetExample2Response{StatusCode: 200, Response200: &packagenamemodels.GetExample2Response200{}}
 }
 func (h *Handler) writeGetExample2200Response(w http.ResponseWriter, r *packagenamemodels.GetExample2Response200) {
@@ -1014,7 +1014,7 @@ func (h *Handler) parsePostExampleParamNameRequest(r *http.Request) (*packagenam
 	}
 	return &packagenamemodels.PostExampleParamNameRequest{Path: *pathParams, Query: *queryParams, Headers: *headers, Body: *body}, nil
 }
-func PostExampleParamName200Response(headers packagenamemodels.PostExampleParamNameResponse200Headers) *packagenamemodels.PostExampleParamNameResponse {
+func PostExampleParamName200(headers packagenamemodels.PostExampleParamNameResponse200Headers) *packagenamemodels.PostExampleParamNameResponse {
 	return &packagenamemodels.PostExampleParamNameResponse{StatusCode: 200, Response200: &packagenamemodels.PostExampleParamNameResponse200{Headers: headers}}
 }
 func (h *Handler) writePostExampleParamName200Response(w http.ResponseWriter, r *packagenamemodels.PostExampleParamNameResponse200) {
@@ -1213,7 +1213,7 @@ func (h *Handler) parsePostExampleRequest(r *http.Request) (*packagenamemodels.P
 	}
 	return &packagenamemodels.PostExampleRequest{Body: *body}, nil
 }
-func PostExample200Response() *packagenamemodels.PostExampleResponse {
+func PostExample200() *packagenamemodels.PostExampleResponse {
 	return &packagenamemodels.PostExampleResponse{StatusCode: 200, Response200: &packagenamemodels.PostExampleResponse200{}}
 }
 func (h *Handler) writePostExample200Response(w http.ResponseWriter, r *packagenamemodels.PostExampleResponse200) {
@@ -1399,7 +1399,7 @@ func (h *Handler) parseOpRequest(r *http.Request) (*packagenamemodels.OpRequest,
 	}
 	return &packagenamemodels.OpRequest{Body: *body}, nil
 }
-func Op200Response() *packagenamemodels.OpResponse {
+func Op200() *packagenamemodels.OpResponse {
 	return &packagenamemodels.OpResponse{StatusCode: 200, Response200: &packagenamemodels.OpResponse200{}}
 }
 func (h *Handler) writeOp200Response(w http.ResponseWriter, r *packagenamemodels.OpResponse200) {
@@ -1571,7 +1571,7 @@ func (h *Handler) parseOpRequest(r *http.Request) (*packagenamemodels.OpRequest,
 	}
 	return &packagenamemodels.OpRequest{Cookies: *cookieParams}, nil
 }
-func Op200Response() *packagenamemodels.OpResponse {
+func Op200() *packagenamemodels.OpResponse {
 	return &packagenamemodels.OpResponse{StatusCode: 200, Response200: &packagenamemodels.OpResponse200{}}
 }
 func (h *Handler) writeOp200Response(w http.ResponseWriter, r *packagenamemodels.OpResponse200) {
@@ -1744,7 +1744,7 @@ func (h *Handler) parseOpRequest(r *http.Request) (*packagenamemodels.OpRequest,
 	}
 	return &packagenamemodels.OpRequest{Body: *body}, nil
 }
-func Op200Response() *packagenamemodels.OpResponse {
+func Op200() *packagenamemodels.OpResponse {
 	return &packagenamemodels.OpResponse{StatusCode: 200, Response200: &packagenamemodels.OpResponse200{}}
 }
 func (h *Handler) writeOp200Response(w http.ResponseWriter, r *packagenamemodels.OpResponse200) {
