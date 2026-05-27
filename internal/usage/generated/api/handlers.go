@@ -245,7 +245,7 @@ func (h *Handler) parseCreateRequest(r *http.Request) (*apimodels.CreateRequest,
 	}
 	return &apimodels.CreateRequest{Path: *pathParams, Query: *queryParams, Headers: *headers, Cookies: *cookieParams, Body: *body}, nil
 }
-func Create200Response(body apimodels.NewResourseResponse, headers apimodels.CreateResponse200Headers) *apimodels.CreateResponse {
+func Create200(body apimodels.NewResourseResponse, headers apimodels.CreateResponse200Headers) *apimodels.CreateResponse {
 	return &apimodels.CreateResponse{StatusCode: 200, Response200: &apimodels.CreateResponse200{Body: body, Headers: headers}}
 }
 func (h *Handler) writeCreate200Response(w http.ResponseWriter, r *apimodels.CreateResponse200) {
@@ -272,12 +272,12 @@ func (h *Handler) writeCreate200ResponseHeaders(w http.ResponseWriter, r *apimod
 		w.Header().Set(key, value)
 	}
 }
-func Create400Response() *apimodels.CreateResponse {
+func Create400() *apimodels.CreateResponse {
 	return &apimodels.CreateResponse{StatusCode: 400, Response400: &apimodels.CreateResponse400{}}
 }
 func (h *Handler) writeCreate400Response(w http.ResponseWriter, r *apimodels.CreateResponse400) {
 }
-func Create404Response() *apimodels.CreateResponse {
+func Create404() *apimodels.CreateResponse {
 	return &apimodels.CreateResponse{StatusCode: 404, Response404: &apimodels.CreateResponse404{}}
 }
 func (h *Handler) writeCreate404Response(w http.ResponseWriter, r *apimodels.CreateResponse404) {

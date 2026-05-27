@@ -21,9 +21,9 @@ func (m *mockHandler) HandleCreate(ctx context.Context, r apimodels.CreateReques
 	if r.Body.CodeForResponse != nil {
 		switch *r.Body.CodeForResponse {
 		case 400:
-			return api.Create400Response(), nil
+			return api.Create400(), nil
 		case 404:
-			return api.Create404Response(), nil
+			return api.Create404(), nil
 		}
 	}
 	var date *time.Time
@@ -36,7 +36,7 @@ func (m *mockHandler) HandleCreate(ctx context.Context, r apimodels.CreateReques
 		date2 = new(time.Time)
 		*date2 = r.Headers.OptionalHeader.UTC()
 	}
-	return api.Create200Response(
+	return api.Create200(
 		apimodels.NewResourseResponse{
 			Count:        r.Query.Count,
 			Description:  r.Body.Description,

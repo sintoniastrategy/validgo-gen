@@ -777,7 +777,7 @@ func (g *Generator) AddCreateResponseModel(baseName string, code string, respons
 		})
 	}
 
-	g.HandlersFile.restDecls = append(g.HandlersFile.restDecls, Func(baseName+code+"Response",
+	g.HandlersFile.restDecls = append(g.HandlersFile.restDecls, Func(baseName+code,
 		nil,
 		arglist,
 		[]*ast.Field{
