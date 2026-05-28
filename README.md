@@ -86,8 +86,6 @@ Content-Type: text/plain; charset=utf-8
 sites pass `"InternalServerError"` and never leak the original
 `err.Error()`; 415 sites pass `"Unsupported Content-Type"`.)
 
-### Customizing the envelope
-
 ```go
 api.NewHandler(impl, api.WithErrorHandler(func(w http.ResponseWriter, r *http.Request, status int, msg string) {
     utils.WriteErr(w, r, utils.ErrorResponse{
