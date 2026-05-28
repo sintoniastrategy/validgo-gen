@@ -440,9 +440,6 @@ func Test500(t *testing.T) {
 	})
 }
 
-// TestWithErrorHandler asserts that a custom ErrorHandler passed via
-// api.WithErrorHandler fully replaces the default {code,error,req_id}
-// envelope at every generated error site.
 func TestWithErrorHandler(t *testing.T) {
 	custom := func(w http.ResponseWriter, r *http.Request, status int, msg string) {
 		w.Header().Set("Content-Type", "application/x-custom+json")
@@ -482,8 +479,6 @@ func TestWithErrorHandler(t *testing.T) {
 	assert.NotEmpty(t, body["my_msg"], "msg should propagate from parser")
 }
 
-// TestSetErrorHandler asserts the post-construction setter has the same
-// effect as WithErrorHandler — the aggregator-loop pattern relies on it.
 func TestSetErrorHandler(t *testing.T) {
 	var captured struct {
 		status int
@@ -518,31 +513,18 @@ func TestSetErrorHandler(t *testing.T) {
 	assert.NotEmpty(t, captured.msg)
 }
 
-// TestErrorHandlerAliasIsCrossPackage verifies the package-level
-// ErrorHandler is a *type alias* (not a named type), so a plain
-// `func(http.ResponseWriter, *http.Request, int, string)` value can be
-// passed to SetErrorHandler on Handlers from different generated packages
-// without a per-package conversion. This is the property the aggregator
-// pattern documented in the README relies on.
 func TestErrorHandlerAliasIsCrossPackage(t *testing.T) {
 	var eh = func(w http.ResponseWriter, r *http.Request, status int, msg string) {
 		_ = msg
 		w.WriteHeader(status)
 	}
-	// Compile-time check: assigning a bare func value to api.ErrorHandler
-	// would fail if ErrorHandler were a named type.
 	var _ api.ErrorHandler = eh
 
 	h := api.NewHandler(&mockHandler{})
 	h.SetErrorHandler(eh)
-	// no runtime assertion needed — the compile-time check above is the test.
 	_ = h
 }
 
-// TestDefaultErrorEnvelope exercises the four distinct error sites through
-// the unchanged default DefaultErrorHandler — the legacy {"error":"<msg>"}
-// body emitted via net/http.Error. Consumers that want a richer envelope
-// override it via WithErrorHandler / SetErrorHandler (see TestWithErrorHandler).
 func TestDefaultErrorEnvelope(t *testing.T) {
 	router := chi.NewRouter()
 	api.NewHandler(&mockHandler{}).AddRoutes(router)
