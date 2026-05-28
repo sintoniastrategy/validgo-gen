@@ -6,7 +6,7 @@ import (
 	"go/token"
 )
 
-const standardErrorHelperSrc = `package _
+const standardErrorHandlerSrc = `package _
 
 type ErrorHandler = func(w http.ResponseWriter, r *http.Request, status int, msg string)
 
@@ -23,8 +23,8 @@ var DefaultErrorHandler ErrorHandler = func(w http.ResponseWriter, r *http.Reque
 }
 `
 
-func parseStandardErrorHelperDecls() []ast.Decl {
-	file, err := parser.ParseFile(token.NewFileSet(), "", standardErrorHelperSrc, 0)
+func parseStandardErrorHandlerDecls() []ast.Decl {
+	file, err := parser.ParseFile(token.NewFileSet(), "", standardErrorHandlerSrc, 0)
 	if err != nil {
 		panic(err)
 	}
@@ -48,7 +48,7 @@ func (g *Generator) AddStandardErrorDecls() {
 	g.AddHandlersImport("fmt")
 	g.AddHandlersImport("net/http")
 	g.AddHandlersImport("strconv")
-	g.HandlersFile.extraDecls = append(g.HandlersFile.extraDecls, parseStandardErrorHelperDecls()...)
+	g.HandlersFile.extraDecls = append(g.HandlersFile.extraDecls, parseStandardErrorHandlerDecls()...)
 }
 
 func writeStandardErrorCall(statusConst string, msgExpr ast.Expr) *ast.ExprStmt {
