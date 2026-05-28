@@ -83,7 +83,7 @@ Content-Type: text/plain; charset=utf-8
 ```
 
 (Body shape is `{"error":"<msg>"}`; status comes from the call site. 500
-sites pass `"InternalServerError"` and never leak the original
+sites pass `"Internal Server Error"` and never leak the original
 `err.Error()`; 415 sites pass `"Unsupported Content-Type"`.)
 
 ```go
