@@ -83,7 +83,7 @@ func (g *Generator) WriteSchemasToOutput(output io.Writer) error {
 		return errors.Wrap(err, op)
 	}
 
-	importSpecs, declSpecs := g.GenerateImportsSpecs(g.SchemasFile.packageImports, nil)
+	importSpecs, declSpecs := g.GenerateImportsSpecs(g.SchemasFile.packageImports)
 
 	file := &ast.File{
 		Name:    ast.NewIdent(g.PackageName + "models"),

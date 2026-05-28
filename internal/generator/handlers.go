@@ -18,7 +18,6 @@ type HandlersFile struct {
 	requiredFieldsArePointers bool
 	packageName               *ast.Ident
 	packageImports            []string
-	packageAliasedImports     map[string]string // alias -> path
 	interfaceDecls            []*ast.GenDecl
 
 	handlerDecl            *ast.GenDecl
@@ -243,92 +242,44 @@ func (g *Generator) AddHandlersImport(path string) {
 	g.HandlersFile.packageImports = append(g.HandlersFile.packageImports, path)
 }
 
-func (g *Generator) AddHandlersImportWithAlias(alias, path string) {
-	if g.HandlersFile.packageAliasedImports == nil {
-		g.HandlersFile.packageAliasedImports = make(map[string]string)
-	}
-	if existing, ok := g.HandlersFile.packageAliasedImports[alias]; ok && existing == path {
-		return
-	}
-	g.HandlersFile.packageAliasedImports[alias] = path
-}
-
-func (g *Generator) GenerateImportsSpecs(imp []string, aliased map[string]string) ([]*ast.ImportSpec, []ast.Spec) {
-	type importEntry struct {
-		alias string
-		path  string
-	}
-	classify := func(path string) (system, lib, mine bool) {
+func (g *Generator) GenerateImportsSpecs(imp []string) ([]*ast.ImportSpec, []ast.Spec) {
+	var systemImports []string //nolint:prealloc
+	var libImports []string
+	var myImports []string
+	for _, path := range imp {
 		if strings.HasPrefix(path, g.Opts.PackagePrefix) {
-			return false, false, true
+			myImports = append(myImports, path)
+
+			continue
 		}
 		prefix := strings.SplitN(path, "/", 2)[0] //nolint:mnd
 		if strings.Contains(prefix, ".") {
-			return false, true, false
+			libImports = append(libImports, path)
+
+			continue
 		}
-		return true, false, false
+		systemImports = append(systemImports, path)
 	}
 
-	var systemImports []importEntry
-	var libImports []importEntry
-	var myImports []importEntry
-	for _, path := range imp {
-		sys, lib, mine := classify(path)
-		switch {
-		case sys:
-			systemImports = append(systemImports, importEntry{path: path})
-		case lib:
-			libImports = append(libImports, importEntry{path: path})
-		case mine:
-			myImports = append(myImports, importEntry{path: path})
-		}
-	}
-	aliases := make([]string, 0, len(aliased))
-	for alias := range aliased {
-		aliases = append(aliases, alias)
-	}
-	sort.Strings(aliases)
-	for _, alias := range aliases {
-		path := aliased[alias]
-		sys, lib, mine := classify(path)
-		switch {
-		case sys:
-			systemImports = append(systemImports, importEntry{alias: alias, path: path})
-		case lib:
-			libImports = append(libImports, importEntry{alias: alias, path: path})
-		case mine:
-			myImports = append(myImports, importEntry{alias: alias, path: path})
-		}
+	sort.Strings(systemImports)
+	sort.Strings(libImports)
+	sort.Strings(myImports)
+
+	specs := make([]*ast.ImportSpec, 0, len(imp))
+	for _, path := range systemImports {
+		specs = append(specs, &ast.ImportSpec{Path: Str(path)})
 	}
 
-	sortEntries := func(s []importEntry) {
-		sort.Slice(s, func(i, j int) bool { return s[i].path < s[j].path })
-	}
-	sortEntries(systemImports)
-	sortEntries(libImports)
-	sortEntries(myImports)
-
-	makeSpec := func(e importEntry) *ast.ImportSpec {
-		spec := &ast.ImportSpec{Path: Str(e.path)}
-		if e.alias != "" {
-			spec.Name = I(e.alias)
-		}
-		return spec
-	}
-
-	specs := make([]*ast.ImportSpec, 0, len(imp)+len(aliased))
-	for _, e := range systemImports {
-		specs = append(specs, makeSpec(e))
-	}
 	// Add a space to separate system and library imports
 	// but go/ast is too great for that
-	for _, e := range libImports {
-		specs = append(specs, makeSpec(e))
+	for _, path := range libImports {
+		specs = append(specs, &ast.ImportSpec{Path: Str(path)})
 	}
+
 	// Add a space to separate library and user imports
 	// but go/ast is too great for that
-	for _, e := range myImports {
-		specs = append(specs, makeSpec(e))
+	for _, path := range myImports {
+		specs = append(specs, &ast.ImportSpec{Path: Str(path)})
 	}
 
 	declSpecs := make([]ast.Spec, 0, len(specs))
@@ -345,7 +296,7 @@ func (g *Generator) GenerateHandlersFile() *ast.File {
 		g.AddStandardErrorDecls()
 	}
 
-	importSpecs, declSpecs := g.GenerateImportsSpecs(g.HandlersFile.packageImports, g.HandlersFile.packageAliasedImports)
+	importSpecs, declSpecs := g.GenerateImportsSpecs(g.HandlersFile.packageImports)
 
 	g.FinalizeHandlerSwitches()
 
