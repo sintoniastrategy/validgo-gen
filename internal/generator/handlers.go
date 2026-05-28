@@ -89,12 +89,6 @@ func (g *Generator) InitHandlerConstructor() {
 	g.HandlersFile.handlerConstructorDeclQAConstructorComposite = initializerComposite
 }
 
-// FinalizeHandlerConstructor extends the Handler struct, constructor and
-// initializer with the Option-3 error-handler plumbing: an `errorHandler`
-// field, an `opts ...Option` variadic param, and a body that applies each
-// option to the constructed *Handler. Called from GenerateHandlersFile only
-// when the file has at least one route (no plumbing on schema-only packages
-// like the def fixture).
 func (g *Generator) FinalizeHandlerConstructor() {
 	// 1. Append `errorHandler ErrorHandler` to the Handler struct.
 	g.HandlersFile.handlerDeclQAFieldList.List = append(
