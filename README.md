@@ -71,53 +71,37 @@ func (h *petHandler) HandleUpdatePet(
 
 Every internal failure emitted by a generated handler — request parse errors,
 unsupported `Content-Type`, the handler returning `nil`, and JSON encode
-failures inside the response writers — uses a single envelope:
+failures inside the response writers — is routed through a single
+`ErrorHandler` callback. The default reproduces the body the generator
+emitted before the hook existed:
 
 ```
 HTTP/1.1 400 Bad Request
-Content-Type: application/json; charset=utf-8
+Content-Type: text/plain; charset=utf-8
 
-{"code":"BadRequest","error":"field email is required","req_id":"<uuid>"}
+{"error":"field email is required"}
 ```
 
-Status code → `code` mapping (unknown statuses fall back to `"Error"`):
-
-| Status | `code`                  |
-|-------:|-------------------------|
-| 400    | `BadRequest`            |
-| 401    | `Unauthorized`          |
-| 403    | `Forbidden`             |
-| 404    | `NotFound`              |
-| 409    | `Conflict`              |
-| 415    | `UnsupportedMediaType`  |
-| 429    | `TooManyRequests`       |
-| 500    | `InternalServerError`   |
-
-`req_id` is read from `chimw.GetReqID(r.Context())`
-(`github.com/go-chi/chi/v5/middleware`). Mount chi's `RequestID` middleware to
-populate it; without the middleware the field stays an empty string. All
-three fields are always present — `omitempty` is not used — so downstream
-consumers can rely on a stable shape.
-
-For `500` responses the body always carries the generic message
-`"Internal server error"`. The original `err.Error()` from the user handler
-is intentionally dropped to avoid leaking internal details (database paths,
-stack frames, etc.). Wrap your handler interfaces with a logging middleware
-if you need the underlying error preserved.
+(Body shape is `{"error":"<msg>"}`; status comes from the call site. 500
+sites pass `"InternalServerError"` and never leak the original
+`err.Error()`; 415 sites pass `"Unsupported Content-Type"`.)
 
 ### Customizing the envelope
 
-Each generated package exposes an `ErrorHandler` function-type alias and two
-hooks for replacing the default body — `WithErrorHandler` (constructor
-option) and `SetErrorHandler` (post-construction setter):
+Each generated package exposes:
 
 ```go
 type ErrorHandler = func(w http.ResponseWriter, r *http.Request, status int, msg string)
 
-func WithErrorHandler(eh ErrorHandler) Option
-func (h *Handler) SetErrorHandler(eh ErrorHandler)
-var DefaultErrorHandler ErrorHandler  // the standard {code,error,req_id} body
+func WithErrorHandler(eh ErrorHandler) Option        // constructor option
+func (h *Handler) SetErrorHandler(eh ErrorHandler)   // post-construction setter
+var DefaultErrorHandler ErrorHandler                 // the legacy body, exported for wrapping
 ```
+
+`ErrorHandler` is a **type alias** (not a named type), so a single bare
+`func(http.ResponseWriter, *http.Request, int, string)` value assigns to
+every package's setter without a conversion — which is what makes the
+aggregator-loop pattern below possible.
 
 **Constructor option** — idiomatic for one-off handlers:
 
@@ -125,15 +109,15 @@ var DefaultErrorHandler ErrorHandler  // the standard {code,error,req_id} body
 api.NewHandler(impl, api.WithErrorHandler(func(w http.ResponseWriter, r *http.Request, status int, msg string) {
     utils.WriteErr(w, r, utils.ErrorResponse{
         Code:    canonicalCode(status),
-        Message: msg,                    // your field is "message", not "error"
+        Message: msg,
         ReqID:   chimw.GetReqID(r.Context()),
-        TraceID: tracing.FromCtx(r.Context()), // extra fields, no codegen change
+        TraceID: tracing.FromCtx(r.Context()),
     })
 }))
 ```
 
 **Setter pattern** — better when many generated packages share one handler
-via an aggregator:
+via an aggregator (fx, wire, ...):
 
 ```go
 type CodegenErrorHandlerSetter interface {
@@ -147,20 +131,14 @@ for _, gh := range []CodegenErrorHandlerSetter{
 }
 ```
 
-`ErrorHandler` is a **type alias** (not a named type), so a single bare
-`func(http.ResponseWriter, *http.Request, int, string)` value assigns to
-every package's setter without a conversion — which is what makes the
-aggregator loop possible.
-
-**Wrapping the default** — when you want extra behavior without rewriting
-the body:
+**Wrapping the default** — extra behavior, same body:
 
 ```go
 api.NewHandler(impl, api.WithErrorHandler(func(w http.ResponseWriter, r *http.Request, status int, msg string) {
     if status >= 500 {
         slog.ErrorContext(r.Context(), "api 5xx", "status", status, "msg", msg, "path", r.URL.Path)
     }
-    api.DefaultErrorHandler(w, r, status, msg)  // exported for this use
+    api.DefaultErrorHandler(w, r, status, msg)
 }))
 ```
 

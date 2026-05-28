@@ -599,7 +599,7 @@ func (g *Generator) AddHandleOperationMethodHandlers(baseName string) {
 				},
 				Body: &ast.BlockStmt{
 					List: []ast.Stmt{
-						writeStandardErrorCall("StatusInternalServerError", Str("Internal server error")),
+						writeStandardErrorCall("StatusInternalServerError", Str("InternalServerError")),
 						Ret(),
 					},
 				},
@@ -631,7 +631,7 @@ func (g *Generator) AddWriteResponseMethodHandlers(baseName string, codes []stri
 			Cond: Eq(Sel(I("response"), "Response"+code), I("nil")),
 			Body: &ast.BlockStmt{
 				List: []ast.Stmt{
-					writeStandardErrorCall("StatusInternalServerError", Str("Internal server error")),
+					writeStandardErrorCall("StatusInternalServerError", Str("InternalServerError")),
 					Ret(),
 				},
 			},
@@ -719,7 +719,7 @@ func (g *Generator) AddWriteResponseMethodHandlers(baseName string, codes []stri
 				Tag:  Sel(I("response"), "StatusCode"),
 				Body: switchBody,
 			},
-			writeStandardErrorCall("StatusInternalServerError", Str("Internal server error")),
+			writeStandardErrorCall("StatusInternalServerError", Str("InternalServerError")),
 		},
 	)
 
@@ -763,7 +763,7 @@ func (g *Generator) AddWriteHeadersForResponseCode(baseName string, code string,
 		Cond: Ne(I("err"), I("nil")),
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
-				writeStandardErrorCall("StatusInternalServerError", Str("Internal server error")),
+				writeStandardErrorCall("StatusInternalServerError", Str("InternalServerError")),
 				Ret(),
 			},
 		},
@@ -799,7 +799,7 @@ func (g *Generator) AddWriteHeadersForResponseCode(baseName string, code string,
 		Cond: Ne(I("err"), I("nil")),
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
-				writeStandardErrorCall("StatusInternalServerError", Str("Internal server error")),
+				writeStandardErrorCall("StatusInternalServerError", Str("InternalServerError")),
 				Ret(),
 			},
 		},
@@ -874,7 +874,7 @@ func (g *Generator) AddWriteResponseCode(baseName string, code string, response 
 				Cond: Ne(I("err"), I("nil")),
 				Body: &ast.BlockStmt{
 					List: []ast.Stmt{
-						writeStandardErrorCall("StatusInternalServerError", Str("Internal server error")),
+						writeStandardErrorCall("StatusInternalServerError", Str("InternalServerError")),
 						Ret(),
 					},
 				},

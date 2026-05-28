@@ -5,10 +5,11 @@ package packagename
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"mime"
 	"net/http"
+	"strconv"
 	"github.com/go-chi/chi/v5"
-	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-playground/validator/v10"
 	"packagename/imports/models"
 )
@@ -69,14 +70,14 @@ func (h *Handler) writeOpResponse(w http.ResponseWriter, r *http.Request, respon
 	switch response.StatusCode {
 	case 200:
 		if response.Response200 == nil {
-			h.errorHandler(w, r, http.StatusInternalServerError, "Internal server error")
+			h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
 			return
 		}
 		w.WriteHeader(response.StatusCode)
 		h.writeOp200Response(w, r, response.Response200)
 		return
 	}
-	h.errorHandler(w, r, http.StatusInternalServerError, "Internal server error")
+	h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
 }
 func (h *Handler) handleOpRequest(w http.ResponseWriter, r *http.Request) {
 	request, err := h.parseOpRequest(r)
@@ -87,7 +88,7 @@ func (h *Handler) handleOpRequest(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	response, err := h.op.HandleOp(ctx, *request)
 	if err != nil || response == nil {
-		h.errorHandler(w, r, http.StatusInternalServerError, "Internal server error")
+		h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
 		return
 	}
 	h.writeOpResponse(w, r, response)
@@ -123,13 +124,6 @@ func (h *Handler) SetErrorHandler(eh ErrorHandler) {
 	h.errorHandler = eh
 }
 
-var statusToCode = map[int]string{400: "BadRequest", 401: "Unauthorized", 403: "Forbidden", 404: "NotFound", 409: "Conflict", 415: "UnsupportedMediaType", 429: "TooManyRequests", 500: "InternalServerError"}
 var DefaultErrorHandler ErrorHandler = func(w http.ResponseWriter, r *http.Request, status int, msg string) {
-	code, ok := statusToCode[status]
-	if !ok {
-		code = "Error"
-	}
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]string{"code": code, "error": msg, "req_id": chimw.GetReqID(r.Context())})
+	http.Error(w, fmt.Sprintf("{\"error\":%s}", strconv.Quote(msg)), status)
 }
