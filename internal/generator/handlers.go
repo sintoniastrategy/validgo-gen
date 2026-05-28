@@ -89,6 +89,65 @@ func (g *Generator) InitHandlerConstructor() {
 	g.HandlersFile.handlerConstructorDeclQAConstructorComposite = initializerComposite
 }
 
+// FinalizeHandlerConstructor extends the Handler struct, constructor and
+// initializer with the Option-3 error-handler plumbing: an `errorHandler`
+// field, an `opts ...Option` variadic param, and a body that applies each
+// option to the constructed *Handler. Called from GenerateHandlersFile only
+// when the file has at least one route (no plumbing on schema-only packages
+// like the def fixture).
+func (g *Generator) FinalizeHandlerConstructor() {
+	// 1. Append `errorHandler ErrorHandler` to the Handler struct.
+	g.HandlersFile.handlerDeclQAFieldList.List = append(
+		g.HandlersFile.handlerDeclQAFieldList.List,
+		Field("errorHandler", I("ErrorHandler"), ""),
+	)
+
+	// 2. Append `errorHandler: DefaultErrorHandler` to the composite literal.
+	g.HandlersFile.handlerConstructorDeclQAConstructorComposite.Elts = append(
+		g.HandlersFile.handlerConstructorDeclQAConstructorComposite.Elts,
+		&ast.KeyValueExpr{
+			Key:   I("errorHandler"),
+			Value: I("DefaultErrorHandler"),
+		},
+	)
+
+	// 3. Append `opts ...Option` to the constructor params.
+	g.HandlersFile.handlerConstructorDeclQAArgs.List = append(
+		g.HandlersFile.handlerConstructorDeclQAArgs.List,
+		Field("opts", &ast.Ellipsis{Elt: I("Option")}, ""),
+	)
+
+	// 4. Rewrite the body from `return &Handler{...}` to
+	//        h := &Handler{...}
+	//        for _, opt := range opts { opt(h) }
+	//        return h
+	initializer := g.HandlersFile.handlerConstructorDeclQAConstructorComposite
+	g.HandlersFile.handlerConstructorDecl.Body.List = []ast.Stmt{
+		&ast.AssignStmt{
+			Lhs: []ast.Expr{I("h")},
+			Tok: token.DEFINE,
+			Rhs: []ast.Expr{Amp(initializer)},
+		},
+		&ast.RangeStmt{
+			Key:   I("_"),
+			Value: I("opt"),
+			Tok:   token.DEFINE,
+			X:     I("opts"),
+			Body: &ast.BlockStmt{
+				List: []ast.Stmt{
+					&ast.ExprStmt{
+						X: &ast.CallExpr{
+							Fun:  I("opt"),
+							Args: []ast.Expr{I("h")},
+						},
+					},
+				},
+			},
+		},
+		Ret1(I("h")),
+	}
+}
+
 func (g *Generator) InitRoutesFunc() {
 	g.HandlersFile.addRoutesDecl = Func(
 		"AddRoutes",
@@ -288,6 +347,7 @@ func (g *Generator) GenerateImportsSpecs(imp []string, aliased map[string]string
 
 func (g *Generator) GenerateHandlersFile() *ast.File {
 	if len(g.HandlersFile.addRoutesDecl.Body.List) > 0 {
+		g.FinalizeHandlerConstructor()
 		g.AddStandardErrorDecls()
 	}
 

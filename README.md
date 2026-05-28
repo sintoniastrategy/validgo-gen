@@ -105,6 +105,65 @@ is intentionally dropped to avoid leaking internal details (database paths,
 stack frames, etc.). Wrap your handler interfaces with a logging middleware
 if you need the underlying error preserved.
 
+### Customizing the envelope
+
+Each generated package exposes an `ErrorHandler` function-type alias and two
+hooks for replacing the default body — `WithErrorHandler` (constructor
+option) and `SetErrorHandler` (post-construction setter):
+
+```go
+type ErrorHandler = func(w http.ResponseWriter, r *http.Request, status int, msg string)
+
+func WithErrorHandler(eh ErrorHandler) Option
+func (h *Handler) SetErrorHandler(eh ErrorHandler)
+var DefaultErrorHandler ErrorHandler  // the standard {code,error,req_id} body
+```
+
+**Constructor option** — idiomatic for one-off handlers:
+
+```go
+api.NewHandler(impl, api.WithErrorHandler(func(w http.ResponseWriter, r *http.Request, status int, msg string) {
+    utils.WriteErr(w, r, utils.ErrorResponse{
+        Code:    canonicalCode(status),
+        Message: msg,                    // your field is "message", not "error"
+        ReqID:   chimw.GetReqID(r.Context()),
+        TraceID: tracing.FromCtx(r.Context()), // extra fields, no codegen change
+    })
+}))
+```
+
+**Setter pattern** — better when many generated packages share one handler
+via an aggregator:
+
+```go
+type CodegenErrorHandlerSetter interface {
+    SetErrorHandler(func(w http.ResponseWriter, r *http.Request, status int, msg string))
+}
+
+for _, gh := range []CodegenErrorHandlerSetter{
+    apiHandler, adminHandler, internalHandler, /* ... */
+} {
+    gh.SetErrorHandler(utils.CodegenErrorHandler)
+}
+```
+
+`ErrorHandler` is a **type alias** (not a named type), so a single bare
+`func(http.ResponseWriter, *http.Request, int, string)` value assigns to
+every package's setter without a conversion — which is what makes the
+aggregator loop possible.
+
+**Wrapping the default** — when you want extra behavior without rewriting
+the body:
+
+```go
+api.NewHandler(impl, api.WithErrorHandler(func(w http.ResponseWriter, r *http.Request, status int, msg string) {
+    if status >= 500 {
+        slog.ErrorContext(r.Context(), "api 5xx", "status", status, "msg", msg, "path", r.URL.Path)
+    }
+    api.DefaultErrorHandler(w, r, status, msg)  // exported for this use
+}))
+```
+
 ## Documentation
 
 - **[Design & Usage](docs/design/)** — Full architecture reference: code generation pipeline, AST helpers, two-layer validation, OpenAPI→validator tag mapping, handler interfaces, and test strategy.

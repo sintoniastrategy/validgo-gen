@@ -24,10 +24,15 @@ type Handler struct {
 	validator      *validator.Validate
 	listResources  ListResourcesHandler
 	deleteResource DeleteResourceHandler
+	errorHandler   ErrorHandler
 }
 
-func NewHandler(listResources ListResourcesHandler, deleteResource DeleteResourceHandler) *Handler {
-	return &Handler{validator: validator.New(validator.WithRequiredStructEnabled()), listResources: listResources, deleteResource: deleteResource}
+func NewHandler(listResources ListResourcesHandler, deleteResource DeleteResourceHandler, opts ...Option) *Handler {
+	h := &Handler{validator: validator.New(validator.WithRequiredStructEnabled()), listResources: listResources, deleteResource: deleteResource, errorHandler: DefaultErrorHandler}
+	for _, opt := range opts {
+		opt(h)
+	}
+	return h
 }
 func (h *Handler) AddRoutes(router chi.Router) {
 	router.Get("/path/to/resourse", h.handleListResources)
@@ -43,7 +48,7 @@ func (h *Handler) writeListResources200Response(w http.ResponseWriter, r *http.R
 	var err error
 	err = json.NewEncoder(w).Encode(resp.Body)
 	if err != nil {
-		writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 }
@@ -51,7 +56,7 @@ func (h *Handler) writeListResourcesResponse(w http.ResponseWriter, r *http.Requ
 	switch response.StatusCode {
 	case 200:
 		if response.Response200 == nil {
-			writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
+			h.errorHandler(w, r, http.StatusInternalServerError, "Internal server error")
 			return
 		}
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -59,18 +64,18 @@ func (h *Handler) writeListResourcesResponse(w http.ResponseWriter, r *http.Requ
 		h.writeListResources200Response(w, r, response.Response200)
 		return
 	}
-	writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
+	h.errorHandler(w, r, http.StatusInternalServerError, "Internal server error")
 }
 func (h *Handler) handleListResourcesRequest(w http.ResponseWriter, r *http.Request) {
 	request, err := h.parseListResourcesRequest(r)
 	if err != nil {
-		writeStandardError(w, r, http.StatusBadRequest, err.Error())
+		h.errorHandler(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 	ctx := r.Context()
 	response, err := h.listResources.HandleListResources(ctx, *request)
 	if err != nil || response == nil {
-		writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 	h.writeListResourcesResponse(w, r, response)
@@ -108,25 +113,25 @@ func (h *Handler) writeDeleteResourceResponse(w http.ResponseWriter, r *http.Req
 	switch response.StatusCode {
 	case 200:
 		if response.Response200 == nil {
-			writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
+			h.errorHandler(w, r, http.StatusInternalServerError, "Internal server error")
 			return
 		}
 		w.WriteHeader(response.StatusCode)
 		h.writeDeleteResource200Response(w, r, response.Response200)
 		return
 	}
-	writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
+	h.errorHandler(w, r, http.StatusInternalServerError, "Internal server error")
 }
 func (h *Handler) handleDeleteResourceRequest(w http.ResponseWriter, r *http.Request) {
 	request, err := h.parseDeleteResourceRequest(r)
 	if err != nil {
-		writeStandardError(w, r, http.StatusBadRequest, err.Error())
+		h.errorHandler(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 	ctx := r.Context()
 	response, err := h.deleteResource.HandleDeleteResource(ctx, *request)
 	if err != nil || response == nil {
-		writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 	h.writeDeleteResourceResponse(w, r, response)
@@ -136,9 +141,20 @@ func (h *Handler) handleDeleteResource(w http.ResponseWriter, r *http.Request) {
 	h.handleDeleteResourceRequest(w, r)
 }
 
-var statusToCode = map[int]string{400: "BadRequest", 401: "Unauthorized", 403: "Forbidden", 404: "NotFound", 409: "Conflict", 415: "UnsupportedMediaType", 429: "TooManyRequests", 500: "InternalServerError"}
+type ErrorHandler = func(w http.ResponseWriter, r *http.Request, status int, msg string)
+type Option func(*Handler)
 
-func writeStandardError(w http.ResponseWriter, r *http.Request, status int, msg string) {
+func WithErrorHandler(eh ErrorHandler) Option {
+	return func(h *Handler) {
+		h.errorHandler = eh
+	}
+}
+func (h *Handler) SetErrorHandler(eh ErrorHandler) {
+	h.errorHandler = eh
+}
+
+var statusToCode = map[int]string{400: "BadRequest", 401: "Unauthorized", 403: "Forbidden", 404: "NotFound", 409: "Conflict", 415: "UnsupportedMediaType", 429: "TooManyRequests", 500: "InternalServerError"}
+var DefaultErrorHandler ErrorHandler = func(w http.ResponseWriter, r *http.Request, status int, msg string) {
 	code, ok := statusToCode[status]
 	if !ok {
 		code = "Error"

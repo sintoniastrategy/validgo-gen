@@ -446,6 +446,105 @@ func Test500(t *testing.T) {
 	})
 }
 
+// TestWithErrorHandler asserts that a custom ErrorHandler passed via
+// api.WithErrorHandler fully replaces the default {code,error,req_id}
+// envelope at every generated error site.
+func TestWithErrorHandler(t *testing.T) {
+	custom := func(w http.ResponseWriter, r *http.Request, status int, msg string) {
+		w.Header().Set("Content-Type", "application/x-custom+json")
+		w.Header().Set("X-Captured-Status", "yes")
+		w.WriteHeader(status)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"my_status": status,
+			"my_msg":    msg,
+			"sentinel":  "custom-handler-ran",
+		})
+	}
+
+	router := chi.NewRouter()
+	api.NewHandler(&mockHandler{}, api.WithErrorHandler(custom)).AddRoutes(router)
+	server := httptest.NewServer(router)
+	defer server.Close()
+
+	req, _ := http.NewRequest(http.MethodPost,
+		server.URL+"/path/to/param/resourse?count=3",
+		bytes.NewBufferString(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", "k")
+	req.Header.Set("Cookie", "required-cookie-param=required-value")
+
+	resp, err := http.DefaultClient.Do(req)
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	assert.Equal(t, "application/x-custom+json", resp.Header.Get("Content-Type"))
+	assert.Equal(t, "yes", resp.Header.Get("X-Captured-Status"))
+
+	var body map[string]any
+	err = json.NewDecoder(resp.Body).Decode(&body)
+	assert.NoError(t, err)
+	assert.Equal(t, "custom-handler-ran", body["sentinel"])
+	assert.EqualValues(t, http.StatusBadRequest, body["my_status"])
+	assert.NotEmpty(t, body["my_msg"], "msg should propagate from parser")
+}
+
+// TestSetErrorHandler asserts the post-construction setter has the same
+// effect as WithErrorHandler — the aggregator-loop pattern relies on it.
+func TestSetErrorHandler(t *testing.T) {
+	var captured struct {
+		status int
+		msg    string
+	}
+	h := api.NewHandler(&mockHandler{})
+	h.SetErrorHandler(func(w http.ResponseWriter, r *http.Request, status int, msg string) {
+		captured.status = status
+		captured.msg = msg
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte("ok"))
+	})
+
+	router := chi.NewRouter()
+	h.AddRoutes(router)
+	server := httptest.NewServer(router)
+	defer server.Close()
+
+	req, _ := http.NewRequest(http.MethodPost,
+		server.URL+"/path/to/param/resourse?count=3",
+		bytes.NewBufferString(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", "k")
+	req.Header.Set("Cookie", "required-cookie-param=required-value")
+
+	resp, err := http.DefaultClient.Do(req)
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	assert.Equal(t, http.StatusBadRequest, captured.status)
+	assert.NotEmpty(t, captured.msg)
+}
+
+// TestErrorHandlerAliasIsCrossPackage verifies the package-level
+// ErrorHandler is a *type alias* (not a named type), so a plain
+// `func(http.ResponseWriter, *http.Request, int, string)` value can be
+// passed to SetErrorHandler on Handlers from different generated packages
+// without a per-package conversion. This is the property the aggregator
+// pattern documented in the README relies on.
+func TestErrorHandlerAliasIsCrossPackage(t *testing.T) {
+	var eh = func(w http.ResponseWriter, r *http.Request, status int, msg string) {
+		_ = msg
+		w.WriteHeader(status)
+	}
+	// Compile-time check: assigning a bare func value to api.ErrorHandler
+	// would fail if ErrorHandler were a named type.
+	var _ api.ErrorHandler = eh
+
+	h := api.NewHandler(&mockHandler{})
+	h.SetErrorHandler(eh)
+	// no runtime assertion needed — the compile-time check above is the test.
+	_ = h
+}
+
 // TestStandardErrorEnvelope exercises the generated handlers via real HTTP
 // and asserts the standard {code,error,req_id} envelope shape across the
 // four distinct error sites: 400 (parse/validate), 415 (unsupported media

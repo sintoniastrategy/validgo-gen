@@ -7,12 +7,39 @@ import (
 )
 
 // standardErrorHelperSrc is the source for the per-package error-envelope
-// helper that every generated handlers.go file embeds. The helper writes a
-// JSON body matching the standard error envelope: {"code","error","req_id"}.
+// helpers that every generated handlers.go file embeds. It declares:
+//
+//   - ErrorHandler — function-type alias matching every codegen error site.
+//   - Option / WithErrorHandler — variadic option for NewHandler.
+//   - (*Handler).SetErrorHandler — setter for the aggregator-loop pattern
+//     (one Handler.SetErrorHandler call per generated package, instead of
+//     threading WithErrorHandler through every per-package constructor).
+//   - DefaultErrorHandler — the {code,error,req_id} JSON envelope. Exposed
+//     so consumers can wrap it from a custom ErrorHandler.
 //
 // The "package _" prefix is replaced with the generated package's name when
 // these decls are appended to the file by GenerateHandlersFile.
 const standardErrorHelperSrc = `package _
+
+// ErrorHandler is invoked by generated handlers at every internal failure
+// (request parse error, unsupported Content-Type, handler returning nil,
+// JSON encode failure). It is a type alias rather than a named type so a
+// single setter signature can drive Handlers from multiple generated
+// packages without per-package conversions.
+type ErrorHandler = func(w http.ResponseWriter, r *http.Request, status int, msg string)
+
+type Option func(*Handler)
+
+// WithErrorHandler replaces the default {code,error,req_id} envelope with
+// the supplied function for this Handler. Pass it to NewHandler.
+func WithErrorHandler(eh ErrorHandler) Option {
+	return func(h *Handler) { h.errorHandler = eh }
+}
+
+// SetErrorHandler is the post-construction equivalent of WithErrorHandler.
+// Useful when Handlers are constructed by an injector (fx, wire, ...) and
+// the error handler is configured later.
+func (h *Handler) SetErrorHandler(eh ErrorHandler) { h.errorHandler = eh }
 
 var statusToCode = map[int]string{
 	400: "BadRequest",
@@ -25,7 +52,12 @@ var statusToCode = map[int]string{
 	500: "InternalServerError",
 }
 
-func writeStandardError(w http.ResponseWriter, r *http.Request, status int, msg string) {
+// DefaultErrorHandler writes the standard {code,error,req_id} JSON envelope.
+// Status code -> "code" mapping is the canonical Go HTTP name (400 ->
+// "BadRequest", 415 -> "UnsupportedMediaType", ...) and falls back to
+// "Error" for unmapped statuses. "req_id" is read via chi's RequestID
+// middleware; mount it to populate the field, otherwise it stays empty.
+var DefaultErrorHandler ErrorHandler = func(w http.ResponseWriter, r *http.Request, status int, msg string) {
 	code, ok := statusToCode[status]
 	if !ok {
 		code = "Error"
@@ -48,13 +80,21 @@ func parseStandardErrorHelperDecls() []ast.Decl {
 	return file.Decls
 }
 
-// AddStandardErrorDecls appends the package-level statusToCode map and
-// writeStandardError function to the generated handlers file. Safe to call
+// AddStandardErrorDecls appends the ErrorHandler/Option/SetErrorHandler/
+// DefaultErrorHandler decls to the generated handlers file. Safe to call
 // more than once per file — only the first call adds the decls.
 func (g *Generator) AddStandardErrorDecls() {
 	for _, d := range g.HandlersFile.extraDecls {
-		if fn, ok := d.(*ast.FuncDecl); ok && fn.Name != nil && fn.Name.Name == "writeStandardError" {
-			return
+		if v, ok := d.(*ast.GenDecl); ok {
+			for _, spec := range v.Specs {
+				if vs, ok := spec.(*ast.ValueSpec); ok {
+					for _, name := range vs.Names {
+						if name.Name == "DefaultErrorHandler" {
+							return
+						}
+					}
+				}
+			}
 		}
 	}
 	g.AddHandlersImport("encoding/json")
@@ -63,13 +103,17 @@ func (g *Generator) AddStandardErrorDecls() {
 	g.HandlersFile.extraDecls = append(g.HandlersFile.extraDecls, parseStandardErrorHelperDecls()...)
 }
 
-// writeStandardErrorCall builds the AST for
+// writeStandardErrorCall builds the AST for the call site
 //
-//	writeStandardError(w, r, http.<StatusConst>, <msgExpr>)
+//	h.errorHandler(w, r, http.<StatusConst>, <msgExpr>)
+//
+// every generated error site invokes. The receiver routes the call through
+// the user-supplied ErrorHandler (set via WithErrorHandler/SetErrorHandler)
+// or DefaultErrorHandler when no override was supplied.
 func writeStandardErrorCall(statusConst string, msgExpr ast.Expr) *ast.ExprStmt {
 	return &ast.ExprStmt{
 		X: &ast.CallExpr{
-			Fun: I("writeStandardError"),
+			Fun: Sel(I("h"), "errorHandler"),
 			Args: []ast.Expr{
 				I("w"),
 				I("r"),
