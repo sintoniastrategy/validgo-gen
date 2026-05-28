@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/sintoniastrategy/validgo-gen/internal/usage/generated/api"
 	"github.com/sintoniastrategy/validgo-gen/internal/usage/generated/api/apimodels"
 	"github.com/stretchr/testify/assert"
@@ -432,10 +433,121 @@ func Test500(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 
+		assert.Equal(t, "application/json; charset=utf-8", resp.Header.Get("Content-Type"))
+
 		defer resp.Body.Close()
 		var responseBody map[string]string
 		err = json.NewDecoder(resp.Body).Decode(&responseBody)
 		assert.NoError(t, err)
-		assert.Equal(t, "InternalServerError", responseBody["error"])
+		assert.Equal(t, "InternalServerError", responseBody["code"])
+		assert.Equal(t, "Internal server error", responseBody["error"])
+		_, hasReqID := responseBody["req_id"]
+		assert.True(t, hasReqID, "envelope must contain req_id field")
+	})
+}
+
+// TestStandardErrorEnvelope exercises the generated handlers via real HTTP
+// and asserts the standard {code,error,req_id} envelope shape across the
+// four distinct error sites: 400 (parse/validate), 415 (unsupported media
+// type), 404 (route miss handled by user handler), and 500 (handler returned
+// nil). chi's RequestID middleware is mounted so req_id is populated.
+func TestStandardErrorEnvelope(t *testing.T) {
+	router := chi.NewRouter()
+	router.Use(chimw.RequestID)
+	apiHandler := api.NewHandler(&mockHandler{})
+	apiHandler.AddRoutes(router)
+
+	server := httptest.NewServer(router)
+	defer server.Close()
+
+	type envelope struct {
+		Code  string `json:"code"`
+		Error string `json:"error"`
+		ReqID string `json:"req_id"`
+	}
+
+	doRequest := func(t *testing.T, req *http.Request) (*http.Response, envelope) {
+		t.Helper()
+		resp, err := http.DefaultClient.Do(req)
+		assert.NoError(t, err)
+		assert.Equal(t, "application/json; charset=utf-8", resp.Header.Get("Content-Type"))
+		var env envelope
+		err = json.NewDecoder(resp.Body).Decode(&env)
+		_ = resp.Body.Close()
+		assert.NoError(t, err)
+		return resp, env
+	}
+
+	t.Run("400 parse error", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodPost,
+			server.URL+"/path/to/param/resourse?count=3",
+			bytes.NewBufferString(`{}`))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Idempotency-Key", "k")
+		req.Header.Set("Cookie", "required-cookie-param=required-value")
+
+		resp, env := doRequest(t, req)
+		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+		assert.Equal(t, "BadRequest", env.Code)
+		assert.NotEmpty(t, env.Error, "error message should propagate from parser")
+		assert.NotEmpty(t, env.ReqID, "chi RequestID middleware should populate req_id")
+	})
+
+	t.Run("415 unsupported content type", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodPost,
+			server.URL+"/path/to/param/resourse?count=3",
+			bytes.NewBufferString(`<xml/>`))
+		req.Header.Set("Content-Type", "application/xml")
+		req.Header.Set("Idempotency-Key", "k")
+		req.Header.Set("Cookie", "required-cookie-param=required-value")
+
+		resp, env := doRequest(t, req)
+		assert.Equal(t, http.StatusUnsupportedMediaType, resp.StatusCode)
+		assert.Equal(t, "UnsupportedMediaType", env.Code)
+		assert.Equal(t, "Unsupported Content-Type", env.Error)
+		assert.NotEmpty(t, env.ReqID)
+	})
+
+	t.Run("500 handler returned nil response", func(t *testing.T) {
+		router500 := chi.NewRouter()
+		router500.Use(chimw.RequestID)
+		api.NewHandler(&mockHandler500{}).AddRoutes(router500)
+		srv500 := httptest.NewServer(router500)
+		defer srv500.Close()
+
+		req, _ := http.NewRequest(http.MethodPost,
+			srv500.URL+"/path/to/param/resourses?count=3",
+			bytes.NewBufferString(
+				`{"name":"value","description":"d","date":"2023-10-01T00:00:00+03:00","code_for_response":200,"enum-val":"value1"}`))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Idempotency-Key", "k")
+		req.Header.Set("Optional-Header", "2023-10-01T00:00:00+03:00")
+		req.Header.Set("Cookie", "required-cookie-param=required-value")
+
+		resp, env := doRequest(t, req)
+		assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+		assert.Equal(t, "InternalServerError", env.Code)
+		assert.Equal(t, "Internal server error", env.Error,
+			"500 must use generic message, not leak internal err")
+		assert.NotEmpty(t, env.ReqID)
+	})
+
+	t.Run("envelope works without chi RequestID middleware", func(t *testing.T) {
+		bare := chi.NewRouter()
+		api.NewHandler(&mockHandler{}).AddRoutes(bare)
+		srv := httptest.NewServer(bare)
+		defer srv.Close()
+
+		req, _ := http.NewRequest(http.MethodPost,
+			srv.URL+"/path/to/param/resourse?count=3",
+			bytes.NewBufferString(`{}`))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Idempotency-Key", "k")
+		req.Header.Set("Cookie", "required-cookie-param=required-value")
+
+		resp, env := doRequest(t, req)
+		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+		assert.Equal(t, "BadRequest", env.Code)
+		assert.Equal(t, "", env.ReqID, "req_id falls back to empty string without middleware")
 	})
 }

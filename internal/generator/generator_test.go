@@ -838,11 +838,10 @@ package packagename
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"mime"
 	"net/http"
-	"strconv"
 	"github.com/go-chi/chi/v5"
+	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-faster/errors"
 	"github.com/go-playground/validator/v10"
 	"packagename/imports/models"
@@ -873,34 +872,34 @@ func (h *Handler) parseGetExample2Request(r *http.Request) (*packagenamemodels.G
 func GetExample2200() *packagenamemodels.GetExample2Response {
 	return &packagenamemodels.GetExample2Response{StatusCode: 200, Response200: &packagenamemodels.GetExample2Response200{}}
 }
-func (h *Handler) writeGetExample2200Response(w http.ResponseWriter, r *packagenamemodels.GetExample2Response200) {
+func (h *Handler) writeGetExample2200Response(w http.ResponseWriter, r *http.Request, resp *packagenamemodels.GetExample2Response200) {
 }
-func (h *Handler) writeGetExample2Response(w http.ResponseWriter, response *packagenamemodels.GetExample2Response) {
+func (h *Handler) writeGetExample2Response(w http.ResponseWriter, r *http.Request, response *packagenamemodels.GetExample2Response) {
 	switch response.StatusCode {
 	case 200:
 		if response.Response200 == nil {
-			http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+			writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 			return
 		}
 		w.WriteHeader(response.StatusCode)
-		h.writeGetExample2200Response(w, response.Response200)
+		h.writeGetExample2200Response(w, r, response.Response200)
 		return
 	}
-	http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+	writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 }
 func (h *Handler) handleGetExample2Request(w http.ResponseWriter, r *http.Request) {
 	request, err := h.parseGetExample2Request(r)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("{\"error\":%s}", strconv.Quote(err.Error())), http.StatusBadRequest)
+		writeStandardError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 	ctx := r.Context()
 	response, err := h.getExample2.HandleGetExample2(ctx, *request)
 	if err != nil || response == nil {
-		http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+		writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 		return
 	}
-	h.writeGetExample2Response(w, response)
+	h.writeGetExample2Response(w, r, response)
 	return
 }
 func (h *Handler) handleGetExample2(w http.ResponseWriter, r *http.Request) {
@@ -1017,51 +1016,51 @@ func (h *Handler) parsePostExampleParamNameRequest(r *http.Request) (*packagenam
 func PostExampleParamName200(headers packagenamemodels.PostExampleParamNameResponse200Headers) *packagenamemodels.PostExampleParamNameResponse {
 	return &packagenamemodels.PostExampleParamNameResponse{StatusCode: 200, Response200: &packagenamemodels.PostExampleParamNameResponse200{Headers: headers}}
 }
-func (h *Handler) writePostExampleParamName200Response(w http.ResponseWriter, r *packagenamemodels.PostExampleParamNameResponse200) {
+func (h *Handler) writePostExampleParamName200Response(w http.ResponseWriter, r *http.Request, resp *packagenamemodels.PostExampleParamNameResponse200) {
 }
-func (h *Handler) writePostExampleParamName200ResponseHeaders(w http.ResponseWriter, r *packagenamemodels.PostExampleParamNameResponse200) {
-	headersJSON, err := json.Marshal(r.Headers)
+func (h *Handler) writePostExampleParamName200ResponseHeaders(w http.ResponseWriter, r *http.Request, resp *packagenamemodels.PostExampleParamNameResponse200) {
+	headersJSON, err := json.Marshal(resp.Headers)
 	if err != nil {
-		http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+		writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 	var headers map[string]string
 	err = json.Unmarshal(headersJSON, &headers)
 	if err != nil {
-		http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+		writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 	for key, value := range headers {
 		w.Header().Set(key, value)
 	}
 }
-func (h *Handler) writePostExampleParamNameResponse(w http.ResponseWriter, response *packagenamemodels.PostExampleParamNameResponse) {
+func (h *Handler) writePostExampleParamNameResponse(w http.ResponseWriter, r *http.Request, response *packagenamemodels.PostExampleParamNameResponse) {
 	switch response.StatusCode {
 	case 200:
 		if response.Response200 == nil {
-			http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+			writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 			return
 		}
-		h.writePostExampleParamName200ResponseHeaders(w, response.Response200)
+		h.writePostExampleParamName200ResponseHeaders(w, r, response.Response200)
 		w.WriteHeader(response.StatusCode)
-		h.writePostExampleParamName200Response(w, response.Response200)
+		h.writePostExampleParamName200Response(w, r, response.Response200)
 		return
 	}
-	http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+	writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 }
 func (h *Handler) handlePostExampleParamNameRequest(w http.ResponseWriter, r *http.Request) {
 	request, err := h.parsePostExampleParamNameRequest(r)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("{\"error\":%s}", strconv.Quote(err.Error())), http.StatusBadRequest)
+		writeStandardError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 	ctx := r.Context()
 	response, err := h.postExampleParamName.HandlePostExampleParamName(ctx, *request)
 	if err != nil || response == nil {
-		http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+		writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 		return
 	}
-	h.writePostExampleParamNameResponse(w, response)
+	h.writePostExampleParamNameResponse(w, r, response)
 	return
 }
 func (h *Handler) handlePostExampleParamName(w http.ResponseWriter, r *http.Request) {
@@ -1074,9 +1073,21 @@ func (h *Handler) handlePostExampleParamName(w http.ResponseWriter, r *http.Requ
 		h.handlePostExampleParamNameRequest(w, r)
 		return
 	default:
-		http.Error(w, "{\"error\":\"Unsupported Content-Type\"}", http.StatusUnsupportedMediaType)
+		writeStandardError(w, r, http.StatusUnsupportedMediaType, "Unsupported Content-Type")
 		return
 	}
+}
+
+var statusToCode = map[int]string{400: "BadRequest", 401: "Unauthorized", 403: "Forbidden", 404: "NotFound", 409: "Conflict", 415: "UnsupportedMediaType", 429: "TooManyRequests", 500: "InternalServerError"}
+
+func writeStandardError(w http.ResponseWriter, r *http.Request, status int, msg string) {
+	code, ok := statusToCode[status]
+	if !ok {
+		code = "Error"
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]string{"code": code, "error": msg, "req_id": chimw.GetReqID(r.Context())})
 }
 `,
 		},
@@ -1162,11 +1173,10 @@ package packagename
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"mime"
 	"net/http"
-	"strconv"
 	"github.com/go-chi/chi/v5"
+	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-playground/validator/v10"
 	"packagename/imports/models"
 )
@@ -1216,34 +1226,34 @@ func (h *Handler) parsePostExampleRequest(r *http.Request) (*packagenamemodels.P
 func PostExample200() *packagenamemodels.PostExampleResponse {
 	return &packagenamemodels.PostExampleResponse{StatusCode: 200, Response200: &packagenamemodels.PostExampleResponse200{}}
 }
-func (h *Handler) writePostExample200Response(w http.ResponseWriter, r *packagenamemodels.PostExampleResponse200) {
+func (h *Handler) writePostExample200Response(w http.ResponseWriter, r *http.Request, resp *packagenamemodels.PostExampleResponse200) {
 }
-func (h *Handler) writePostExampleResponse(w http.ResponseWriter, response *packagenamemodels.PostExampleResponse) {
+func (h *Handler) writePostExampleResponse(w http.ResponseWriter, r *http.Request, response *packagenamemodels.PostExampleResponse) {
 	switch response.StatusCode {
 	case 200:
 		if response.Response200 == nil {
-			http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+			writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 			return
 		}
 		w.WriteHeader(response.StatusCode)
-		h.writePostExample200Response(w, response.Response200)
+		h.writePostExample200Response(w, r, response.Response200)
 		return
 	}
-	http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+	writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 }
 func (h *Handler) handlePostExampleRequest(w http.ResponseWriter, r *http.Request) {
 	request, err := h.parsePostExampleRequest(r)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("{\"error\":%s}", strconv.Quote(err.Error())), http.StatusBadRequest)
+		writeStandardError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 	ctx := r.Context()
 	response, err := h.postExample.HandlePostExample(ctx, *request)
 	if err != nil || response == nil {
-		http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+		writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 		return
 	}
-	h.writePostExampleResponse(w, response)
+	h.writePostExampleResponse(w, r, response)
 	return
 }
 func (h *Handler) handlePostExample(w http.ResponseWriter, r *http.Request) {
@@ -1256,12 +1266,24 @@ func (h *Handler) handlePostExample(w http.ResponseWriter, r *http.Request) {
 		h.handlePostExampleRequest(w, r)
 		return
 	default:
-		http.Error(w, "{\"error\":\"Unsupported Content-Type\"}", http.StatusUnsupportedMediaType)
+		writeStandardError(w, r, http.StatusUnsupportedMediaType, "Unsupported Content-Type")
 		return
 	}
 }
 func ValidateBodyJSON(_ json.RawMessage) error {
 	return nil
+}
+
+var statusToCode = map[int]string{400: "BadRequest", 401: "Unauthorized", 403: "Forbidden", 404: "NotFound", 409: "Conflict", 415: "UnsupportedMediaType", 429: "TooManyRequests", 500: "InternalServerError"}
+
+func writeStandardError(w http.ResponseWriter, r *http.Request, status int, msg string) {
+	code, ok := statusToCode[status]
+	if !ok {
+		code = "Error"
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]string{"code": code, "error": msg, "req_id": chimw.GetReqID(r.Context())})
 }
 `,
 		},
@@ -1348,11 +1370,10 @@ package packagename
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"mime"
 	"net/http"
-	"strconv"
 	"github.com/go-chi/chi/v5"
+	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-playground/validator/v10"
 	"packagename/imports/models"
 )
@@ -1402,34 +1423,34 @@ func (h *Handler) parseOpRequest(r *http.Request) (*packagenamemodels.OpRequest,
 func Op200() *packagenamemodels.OpResponse {
 	return &packagenamemodels.OpResponse{StatusCode: 200, Response200: &packagenamemodels.OpResponse200{}}
 }
-func (h *Handler) writeOp200Response(w http.ResponseWriter, r *packagenamemodels.OpResponse200) {
+func (h *Handler) writeOp200Response(w http.ResponseWriter, r *http.Request, resp *packagenamemodels.OpResponse200) {
 }
-func (h *Handler) writeOpResponse(w http.ResponseWriter, response *packagenamemodels.OpResponse) {
+func (h *Handler) writeOpResponse(w http.ResponseWriter, r *http.Request, response *packagenamemodels.OpResponse) {
 	switch response.StatusCode {
 	case 200:
 		if response.Response200 == nil {
-			http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+			writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 			return
 		}
 		w.WriteHeader(response.StatusCode)
-		h.writeOp200Response(w, response.Response200)
+		h.writeOp200Response(w, r, response.Response200)
 		return
 	}
-	http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+	writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 }
 func (h *Handler) handleOpRequest(w http.ResponseWriter, r *http.Request) {
 	request, err := h.parseOpRequest(r)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("{\"error\":%s}", strconv.Quote(err.Error())), http.StatusBadRequest)
+		writeStandardError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 	ctx := r.Context()
 	response, err := h.op.HandleOp(ctx, *request)
 	if err != nil || response == nil {
-		http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+		writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 		return
 	}
-	h.writeOpResponse(w, response)
+	h.writeOpResponse(w, r, response)
 	return
 }
 func (h *Handler) handleOp(w http.ResponseWriter, r *http.Request) {
@@ -1442,12 +1463,24 @@ func (h *Handler) handleOp(w http.ResponseWriter, r *http.Request) {
 		h.handleOpRequest(w, r)
 		return
 	default:
-		http.Error(w, "{\"error\":\"Unsupported Content-Type\"}", http.StatusUnsupportedMediaType)
+		writeStandardError(w, r, http.StatusUnsupportedMediaType, "Unsupported Content-Type")
 		return
 	}
 }
 func ValidateBodyJSON(_ json.RawMessage) error {
 	return nil
+}
+
+var statusToCode = map[int]string{400: "BadRequest", 401: "Unauthorized", 403: "Forbidden", 404: "NotFound", 409: "Conflict", 415: "UnsupportedMediaType", 429: "TooManyRequests", 500: "InternalServerError"}
+
+func writeStandardError(w http.ResponseWriter, r *http.Request, status int, msg string) {
+	code, ok := statusToCode[status]
+	if !ok {
+		code = "Error"
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]string{"code": code, "error": msg, "req_id": chimw.GetReqID(r.Context())})
 }
 `,
 		},
@@ -1525,10 +1558,10 @@ package packagename
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"net/http"
-	"strconv"
 	"github.com/go-chi/chi/v5"
+	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-faster/errors"
 	"github.com/go-playground/validator/v10"
 	"packagename/imports/models"
@@ -1574,38 +1607,50 @@ func (h *Handler) parseOpRequest(r *http.Request) (*packagenamemodels.OpRequest,
 func Op200() *packagenamemodels.OpResponse {
 	return &packagenamemodels.OpResponse{StatusCode: 200, Response200: &packagenamemodels.OpResponse200{}}
 }
-func (h *Handler) writeOp200Response(w http.ResponseWriter, r *packagenamemodels.OpResponse200) {
+func (h *Handler) writeOp200Response(w http.ResponseWriter, r *http.Request, resp *packagenamemodels.OpResponse200) {
 }
-func (h *Handler) writeOpResponse(w http.ResponseWriter, response *packagenamemodels.OpResponse) {
+func (h *Handler) writeOpResponse(w http.ResponseWriter, r *http.Request, response *packagenamemodels.OpResponse) {
 	switch response.StatusCode {
 	case 200:
 		if response.Response200 == nil {
-			http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+			writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 			return
 		}
 		w.WriteHeader(response.StatusCode)
-		h.writeOp200Response(w, response.Response200)
+		h.writeOp200Response(w, r, response.Response200)
 		return
 	}
-	http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+	writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 }
 func (h *Handler) handleOpRequest(w http.ResponseWriter, r *http.Request) {
 	request, err := h.parseOpRequest(r)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("{\"error\":%s}", strconv.Quote(err.Error())), http.StatusBadRequest)
+		writeStandardError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 	ctx := r.Context()
 	response, err := h.op.HandleOp(ctx, *request)
 	if err != nil || response == nil {
-		http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+		writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 		return
 	}
-	h.writeOpResponse(w, response)
+	h.writeOpResponse(w, r, response)
 	return
 }
 func (h *Handler) handleOp(w http.ResponseWriter, r *http.Request) {
 	h.handleOpRequest(w, r)
+}
+
+var statusToCode = map[int]string{400: "BadRequest", 401: "Unauthorized", 403: "Forbidden", 404: "NotFound", 409: "Conflict", 415: "UnsupportedMediaType", 429: "TooManyRequests", 500: "InternalServerError"}
+
+func writeStandardError(w http.ResponseWriter, r *http.Request, status int, msg string) {
+	code, ok := statusToCode[status]
+	if !ok {
+		code = "Error"
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]string{"code": code, "error": msg, "req_id": chimw.GetReqID(r.Context())})
 }
 `,
 		},
@@ -1690,11 +1735,10 @@ package packagename
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"mime"
 	"net/http"
-	"strconv"
 	"github.com/go-chi/chi/v5"
+	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-playground/validator/v10"
 	"packagename/imports/models"
 )
@@ -1747,34 +1791,34 @@ func (h *Handler) parseOpRequest(r *http.Request) (*packagenamemodels.OpRequest,
 func Op200() *packagenamemodels.OpResponse {
 	return &packagenamemodels.OpResponse{StatusCode: 200, Response200: &packagenamemodels.OpResponse200{}}
 }
-func (h *Handler) writeOp200Response(w http.ResponseWriter, r *packagenamemodels.OpResponse200) {
+func (h *Handler) writeOp200Response(w http.ResponseWriter, r *http.Request, resp *packagenamemodels.OpResponse200) {
 }
-func (h *Handler) writeOpResponse(w http.ResponseWriter, response *packagenamemodels.OpResponse) {
+func (h *Handler) writeOpResponse(w http.ResponseWriter, r *http.Request, response *packagenamemodels.OpResponse) {
 	switch response.StatusCode {
 	case 200:
 		if response.Response200 == nil {
-			http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+			writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 			return
 		}
 		w.WriteHeader(response.StatusCode)
-		h.writeOp200Response(w, response.Response200)
+		h.writeOp200Response(w, r, response.Response200)
 		return
 	}
-	http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+	writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 }
 func (h *Handler) handleOpRequest(w http.ResponseWriter, r *http.Request) {
 	request, err := h.parseOpRequest(r)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("{\"error\":%s}", strconv.Quote(err.Error())), http.StatusBadRequest)
+		writeStandardError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 	ctx := r.Context()
 	response, err := h.op.HandleOp(ctx, *request)
 	if err != nil || response == nil {
-		http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+		writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 		return
 	}
-	h.writeOpResponse(w, response)
+	h.writeOpResponse(w, r, response)
 	return
 }
 func (h *Handler) handleOp(w http.ResponseWriter, r *http.Request) {
@@ -1787,9 +1831,21 @@ func (h *Handler) handleOp(w http.ResponseWriter, r *http.Request) {
 		h.handleOpRequest(w, r)
 		return
 	default:
-		http.Error(w, "{\"error\":\"Unsupported Content-Type\"}", http.StatusUnsupportedMediaType)
+		writeStandardError(w, r, http.StatusUnsupportedMediaType, "Unsupported Content-Type")
 		return
 	}
+}
+
+var statusToCode = map[int]string{400: "BadRequest", 401: "Unauthorized", 403: "Forbidden", 404: "NotFound", 409: "Conflict", 415: "UnsupportedMediaType", 429: "TooManyRequests", 500: "InternalServerError"}
+
+func writeStandardError(w http.ResponseWriter, r *http.Request, status int, msg string) {
+	code, ok := statusToCode[status]
+	if !ok {
+		code = "Error"
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]string{"code": code, "error": msg, "req_id": chimw.GetReqID(r.Context())})
 }
 `,
 		},

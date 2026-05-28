@@ -67,6 +67,44 @@ func (h *petHandler) HandleUpdatePet(
 }
 ```
 
+## Error envelope
+
+Every internal failure emitted by a generated handler — request parse errors,
+unsupported `Content-Type`, the handler returning `nil`, and JSON encode
+failures inside the response writers — uses a single envelope:
+
+```
+HTTP/1.1 400 Bad Request
+Content-Type: application/json; charset=utf-8
+
+{"code":"BadRequest","error":"field email is required","req_id":"<uuid>"}
+```
+
+Status code → `code` mapping (unknown statuses fall back to `"Error"`):
+
+| Status | `code`                  |
+|-------:|-------------------------|
+| 400    | `BadRequest`            |
+| 401    | `Unauthorized`          |
+| 403    | `Forbidden`             |
+| 404    | `NotFound`              |
+| 409    | `Conflict`              |
+| 415    | `UnsupportedMediaType`  |
+| 429    | `TooManyRequests`       |
+| 500    | `InternalServerError`   |
+
+`req_id` is read from `chimw.GetReqID(r.Context())`
+(`github.com/go-chi/chi/v5/middleware`). Mount chi's `RequestID` middleware to
+populate it; without the middleware the field stays an empty string. All
+three fields are always present — `omitempty` is not used — so downstream
+consumers can rely on a stable shape.
+
+For `500` responses the body always carries the generic message
+`"Internal server error"`. The original `err.Error()` from the user handler
+is intentionally dropped to avoid leaking internal details (database paths,
+stack frames, etc.). Wrap your handler interfaces with a logging middleware
+if you need the underlying error preserved.
+
 ## Documentation
 
 - **[Design & Usage](docs/design/)** — Full architecture reference: code generation pipeline, AST helpers, two-layer validation, OpenAPI→validator tag mapping, handler interfaces, and test strategy.

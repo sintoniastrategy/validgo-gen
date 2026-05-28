@@ -5,10 +5,9 @@ package api3
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"strconv"
 	"github.com/go-chi/chi/v5"
+	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-faster/errors"
 	"github.com/go-playground/validator/v10"
 	"github.com/sintoniastrategy/validgo-gen/test/testdata/generated/api3/api3models"
@@ -40,41 +39,41 @@ func (h *Handler) parseListResourcesRequest(r *http.Request) (*api3models.ListRe
 func ListResources200(body defmodels.NewResourseResponse) *api3models.ListResourcesResponse {
 	return &api3models.ListResourcesResponse{StatusCode: 200, Response200: &api3models.ListResourcesResponse200{Body: body}}
 }
-func (h *Handler) writeListResources200Response(w http.ResponseWriter, r *api3models.ListResourcesResponse200) {
+func (h *Handler) writeListResources200Response(w http.ResponseWriter, r *http.Request, resp *api3models.ListResourcesResponse200) {
 	var err error
-	err = json.NewEncoder(w).Encode(r.Body)
+	err = json.NewEncoder(w).Encode(resp.Body)
 	if err != nil {
-		http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+		writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 }
-func (h *Handler) writeListResourcesResponse(w http.ResponseWriter, response *api3models.ListResourcesResponse) {
+func (h *Handler) writeListResourcesResponse(w http.ResponseWriter, r *http.Request, response *api3models.ListResourcesResponse) {
 	switch response.StatusCode {
 	case 200:
 		if response.Response200 == nil {
-			http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+			writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 			return
 		}
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.WriteHeader(response.StatusCode)
-		h.writeListResources200Response(w, response.Response200)
+		h.writeListResources200Response(w, r, response.Response200)
 		return
 	}
-	http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+	writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 }
 func (h *Handler) handleListResourcesRequest(w http.ResponseWriter, r *http.Request) {
 	request, err := h.parseListResourcesRequest(r)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("{\"error\":%s}", strconv.Quote(err.Error())), http.StatusBadRequest)
+		writeStandardError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 	ctx := r.Context()
 	response, err := h.listResources.HandleListResources(ctx, *request)
 	if err != nil || response == nil {
-		http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+		writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 		return
 	}
-	h.writeListResourcesResponse(w, response)
+	h.writeListResourcesResponse(w, r, response)
 	return
 }
 func (h *Handler) handleListResources(w http.ResponseWriter, r *http.Request) {
@@ -103,36 +102,48 @@ func (h *Handler) parseDeleteResourceRequest(r *http.Request) (*api3models.Delet
 func DeleteResource200() *api3models.DeleteResourceResponse {
 	return &api3models.DeleteResourceResponse{StatusCode: 200, Response200: &api3models.DeleteResourceResponse200{}}
 }
-func (h *Handler) writeDeleteResource200Response(w http.ResponseWriter, r *api3models.DeleteResourceResponse200) {
+func (h *Handler) writeDeleteResource200Response(w http.ResponseWriter, r *http.Request, resp *api3models.DeleteResourceResponse200) {
 }
-func (h *Handler) writeDeleteResourceResponse(w http.ResponseWriter, response *api3models.DeleteResourceResponse) {
+func (h *Handler) writeDeleteResourceResponse(w http.ResponseWriter, r *http.Request, response *api3models.DeleteResourceResponse) {
 	switch response.StatusCode {
 	case 200:
 		if response.Response200 == nil {
-			http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+			writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 			return
 		}
 		w.WriteHeader(response.StatusCode)
-		h.writeDeleteResource200Response(w, response.Response200)
+		h.writeDeleteResource200Response(w, r, response.Response200)
 		return
 	}
-	http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+	writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 }
 func (h *Handler) handleDeleteResourceRequest(w http.ResponseWriter, r *http.Request) {
 	request, err := h.parseDeleteResourceRequest(r)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("{\"error\":%s}", strconv.Quote(err.Error())), http.StatusBadRequest)
+		writeStandardError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 	ctx := r.Context()
 	response, err := h.deleteResource.HandleDeleteResource(ctx, *request)
 	if err != nil || response == nil {
-		http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+		writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 		return
 	}
-	h.writeDeleteResourceResponse(w, response)
+	h.writeDeleteResourceResponse(w, r, response)
 	return
 }
 func (h *Handler) handleDeleteResource(w http.ResponseWriter, r *http.Request) {
 	h.handleDeleteResourceRequest(w, r)
+}
+
+var statusToCode = map[int]string{400: "BadRequest", 401: "Unauthorized", 403: "Forbidden", 404: "NotFound", 409: "Conflict", 415: "UnsupportedMediaType", 429: "TooManyRequests", 500: "InternalServerError"}
+
+func writeStandardError(w http.ResponseWriter, r *http.Request, status int, msg string) {
+	code, ok := statusToCode[status]
+	if !ok {
+		code = "Error"
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]string{"code": code, "error": msg, "req_id": chimw.GetReqID(r.Context())})
 }

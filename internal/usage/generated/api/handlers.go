@@ -5,12 +5,11 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"mime"
 	"net/http"
-	"strconv"
 	"time"
 	"github.com/go-chi/chi/v5"
+	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-faster/errors"
 	"github.com/go-playground/validator/v10"
 	"github.com/sintoniastrategy/validgo-gen/internal/usage/generated/api/apimodels"
@@ -248,24 +247,24 @@ func (h *Handler) parseCreateRequest(r *http.Request) (*apimodels.CreateRequest,
 func Create200(body apimodels.NewResourseResponse, headers apimodels.CreateResponse200Headers) *apimodels.CreateResponse {
 	return &apimodels.CreateResponse{StatusCode: 200, Response200: &apimodels.CreateResponse200{Body: body, Headers: headers}}
 }
-func (h *Handler) writeCreate200Response(w http.ResponseWriter, r *apimodels.CreateResponse200) {
+func (h *Handler) writeCreate200Response(w http.ResponseWriter, r *http.Request, resp *apimodels.CreateResponse200) {
 	var err error
-	err = json.NewEncoder(w).Encode(r.Body)
+	err = json.NewEncoder(w).Encode(resp.Body)
 	if err != nil {
-		http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+		writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 }
-func (h *Handler) writeCreate200ResponseHeaders(w http.ResponseWriter, r *apimodels.CreateResponse200) {
-	headersJSON, err := json.Marshal(r.Headers)
+func (h *Handler) writeCreate200ResponseHeaders(w http.ResponseWriter, r *http.Request, resp *apimodels.CreateResponse200) {
+	headersJSON, err := json.Marshal(resp.Headers)
 	if err != nil {
-		http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+		writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 	var headers map[string]string
 	err = json.Unmarshal(headersJSON, &headers)
 	if err != nil {
-		http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+		writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 	for key, value := range headers {
@@ -275,57 +274,57 @@ func (h *Handler) writeCreate200ResponseHeaders(w http.ResponseWriter, r *apimod
 func Create400() *apimodels.CreateResponse {
 	return &apimodels.CreateResponse{StatusCode: 400, Response400: &apimodels.CreateResponse400{}}
 }
-func (h *Handler) writeCreate400Response(w http.ResponseWriter, r *apimodels.CreateResponse400) {
+func (h *Handler) writeCreate400Response(w http.ResponseWriter, r *http.Request, resp *apimodels.CreateResponse400) {
 }
 func Create404() *apimodels.CreateResponse {
 	return &apimodels.CreateResponse{StatusCode: 404, Response404: &apimodels.CreateResponse404{}}
 }
-func (h *Handler) writeCreate404Response(w http.ResponseWriter, r *apimodels.CreateResponse404) {
+func (h *Handler) writeCreate404Response(w http.ResponseWriter, r *http.Request, resp *apimodels.CreateResponse404) {
 }
-func (h *Handler) writeCreateResponse(w http.ResponseWriter, response *apimodels.CreateResponse) {
+func (h *Handler) writeCreateResponse(w http.ResponseWriter, r *http.Request, response *apimodels.CreateResponse) {
 	switch response.StatusCode {
 	case 200:
 		if response.Response200 == nil {
-			http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+			writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 			return
 		}
-		h.writeCreate200ResponseHeaders(w, response.Response200)
+		h.writeCreate200ResponseHeaders(w, r, response.Response200)
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.WriteHeader(response.StatusCode)
-		h.writeCreate200Response(w, response.Response200)
+		h.writeCreate200Response(w, r, response.Response200)
 		return
 	case 400:
 		if response.Response400 == nil {
-			http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+			writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 			return
 		}
 		w.WriteHeader(response.StatusCode)
-		h.writeCreate400Response(w, response.Response400)
+		h.writeCreate400Response(w, r, response.Response400)
 		return
 	case 404:
 		if response.Response404 == nil {
-			http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+			writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 			return
 		}
 		w.WriteHeader(response.StatusCode)
-		h.writeCreate404Response(w, response.Response404)
+		h.writeCreate404Response(w, r, response.Response404)
 		return
 	}
-	http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+	writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 }
 func (h *Handler) handleCreateRequest(w http.ResponseWriter, r *http.Request) {
 	request, err := h.parseCreateRequest(r)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("{\"error\":%s}", strconv.Quote(err.Error())), http.StatusBadRequest)
+		writeStandardError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 	ctx := r.Context()
 	response, err := h.create.HandleCreate(ctx, *request)
 	if err != nil || response == nil {
-		http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+		writeStandardError(w, r, http.StatusInternalServerError, "Internal server error")
 		return
 	}
-	h.writeCreateResponse(w, response)
+	h.writeCreateResponse(w, r, response)
 	return
 }
 func (h *Handler) handleCreate(w http.ResponseWriter, r *http.Request) {
@@ -338,7 +337,7 @@ func (h *Handler) handleCreate(w http.ResponseWriter, r *http.Request) {
 		h.handleCreateRequest(w, r)
 		return
 	default:
-		http.Error(w, "{\"error\":\"Unsupported Content-Type\"}", http.StatusUnsupportedMediaType)
+		writeStandardError(w, r, http.StatusUnsupportedMediaType, "Unsupported Content-Type")
 		return
 	}
 }
@@ -527,4 +526,16 @@ func ValidateNewResourseResponseJSON(jsonData json.RawMessage) error {
 		}
 	}
 	return nil
+}
+
+var statusToCode = map[int]string{400: "BadRequest", 401: "Unauthorized", 403: "Forbidden", 404: "NotFound", 409: "Conflict", 415: "UnsupportedMediaType", 429: "TooManyRequests", 500: "InternalServerError"}
+
+func writeStandardError(w http.ResponseWriter, r *http.Request, status int, msg string) {
+	code, ok := statusToCode[status]
+	if !ok {
+		code = "Error"
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]string{"code": code, "error": msg, "req_id": chimw.GetReqID(r.Context())})
 }
