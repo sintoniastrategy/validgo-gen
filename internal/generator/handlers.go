@@ -30,6 +30,7 @@ type HandlersFile struct {
 	addRoutesDecl         *ast.FuncDecl
 	handleDeclQASwitches  map[string]*ast.BlockStmt
 	restDecls             []*ast.FuncDecl
+	extraDecls            []ast.Decl
 	hasContainsNullMethod bool
 }
 
@@ -85,6 +86,59 @@ func (g *Generator) InitHandlerConstructor() {
 
 	g.HandlersFile.handlerConstructorDeclQAArgs = g.HandlersFile.handlerConstructorDecl.Type.Params
 	g.HandlersFile.handlerConstructorDeclQAConstructorComposite = initializerComposite
+}
+
+func (g *Generator) FinalizeHandlerConstructor() {
+	// 1. Append `errorHandler ErrorHandler` to the Handler struct.
+	g.HandlersFile.handlerDeclQAFieldList.List = append(
+		g.HandlersFile.handlerDeclQAFieldList.List,
+		Field("errorHandler", I("ErrorHandler"), ""),
+	)
+
+	// 2. Append `errorHandler: DefaultErrorHandler` to the composite literal.
+	g.HandlersFile.handlerConstructorDeclQAConstructorComposite.Elts = append(
+		g.HandlersFile.handlerConstructorDeclQAConstructorComposite.Elts,
+		&ast.KeyValueExpr{
+			Key:   I("errorHandler"),
+			Value: I("DefaultErrorHandler"),
+		},
+	)
+
+	// 3. Append `opts ...Option` to the constructor params.
+	g.HandlersFile.handlerConstructorDeclQAArgs.List = append(
+		g.HandlersFile.handlerConstructorDeclQAArgs.List,
+		Field("opts", &ast.Ellipsis{Elt: I("Option")}, ""),
+	)
+
+	// 4. Rewrite the body from `return &Handler{...}` to
+	//        h := &Handler{...}
+	//        for _, opt := range opts { opt(h) }
+	//        return h
+	initializer := g.HandlersFile.handlerConstructorDeclQAConstructorComposite
+	g.HandlersFile.handlerConstructorDecl.Body.List = []ast.Stmt{
+		&ast.AssignStmt{
+			Lhs: []ast.Expr{I("h")},
+			Tok: token.DEFINE,
+			Rhs: []ast.Expr{Amp(initializer)},
+		},
+		&ast.RangeStmt{
+			Key:   I("_"),
+			Value: I("opt"),
+			Tok:   token.DEFINE,
+			X:     I("opts"),
+			Body: &ast.BlockStmt{
+				List: []ast.Stmt{
+					&ast.ExprStmt{
+						X: &ast.CallExpr{
+							Fun:  I("opt"),
+							Args: []ast.Expr{I("h")},
+						},
+					},
+				},
+			},
+		},
+		Ret1(I("h")),
+	}
 }
 
 func (g *Generator) InitRoutesFunc() {
@@ -237,6 +291,11 @@ func (g *Generator) GenerateImportsSpecs(imp []string) ([]*ast.ImportSpec, []ast
 }
 
 func (g *Generator) GenerateHandlersFile() *ast.File {
+	if len(g.HandlersFile.addRoutesDecl.Body.List) > 0 {
+		g.FinalizeHandlerConstructor()
+		g.AddStandardErrorDecls()
+	}
+
 	importSpecs, declSpecs := g.GenerateImportsSpecs(g.HandlersFile.packageImports)
 
 	g.FinalizeHandlerSwitches()
@@ -261,6 +320,7 @@ func (g *Generator) GenerateHandlersFile() *ast.File {
 	for _, d := range g.HandlersFile.restDecls {
 		file.Decls = append(file.Decls, d)
 	}
+	file.Decls = append(file.Decls, g.HandlersFile.extraDecls...)
 
 	return file
 }
@@ -372,16 +432,7 @@ func (g *Generator) FinalizeHandlerSwitches() {
 		blockStmt.List = append(blockStmt.List, &ast.CaseClause{
 			List: nil,
 			Body: []ast.Stmt{
-				&ast.ExprStmt{
-					X: &ast.CallExpr{
-						Fun: Sel(I("http"), "Error"),
-						Args: []ast.Expr{
-							I("w"),
-							Str("{\"error\":\"Unsupported Content-Type\"}"),
-							Sel(I("http"), "StatusUnsupportedMediaType"),
-						},
-					},
-				},
+				writeStandardErrorCall("StatusUnsupportedMediaType", Str("Unsupported Content-Type")),
 				Ret(),
 			},
 		})
@@ -450,29 +501,9 @@ func (g *Generator) AddHandleOperationMethodHandlers(baseName string) {
 				Cond: Ne(I("err"), I("nil")),
 				Body: &ast.BlockStmt{
 					List: []ast.Stmt{
-						&ast.ExprStmt{
-							X: &ast.CallExpr{
-								Fun: Sel(I("http"), "Error"),
-								Args: []ast.Expr{
-									I("w"),
-									&ast.CallExpr{
-										Fun: Sel(I("fmt"), "Sprintf"),
-										Args: []ast.Expr{
-											Str("{\"error\":%s}"),
-											&ast.CallExpr{
-												Fun: Sel(I("strconv"), "Quote"),
-												Args: []ast.Expr{
-													&ast.CallExpr{
-														Fun: Sel(I("err"), "Error"),
-													},
-												},
-											},
-										},
-									},
-									Sel(I("http"), "StatusBadRequest"),
-								},
-							},
-						},
+						writeStandardErrorCall("StatusBadRequest", &ast.CallExpr{
+							Fun: Sel(I("err"), "Error"),
+						}),
 						Ret(),
 					},
 				},
@@ -513,16 +544,7 @@ func (g *Generator) AddHandleOperationMethodHandlers(baseName string) {
 				},
 				Body: &ast.BlockStmt{
 					List: []ast.Stmt{
-						&ast.ExprStmt{
-							X: &ast.CallExpr{
-								Fun: Sel(I("http"), "Error"),
-								Args: []ast.Expr{
-									I("w"),
-									Str("{\"error\":\"InternalServerError\"}"),
-									Sel(I("http"), "StatusInternalServerError"),
-								},
-							},
-						},
+						writeStandardErrorCall("StatusInternalServerError", Str("Internal Server Error")),
 						Ret(),
 					},
 				},
@@ -532,6 +554,7 @@ func (g *Generator) AddHandleOperationMethodHandlers(baseName string) {
 					Fun: Sel(I("h"), "write"+baseName+"Response"),
 					Args: []ast.Expr{
 						I("w"),
+						I("r"),
 						I("response"),
 					},
 				},
@@ -539,8 +562,6 @@ func (g *Generator) AddHandleOperationMethodHandlers(baseName string) {
 			Ret(),
 		},
 	))
-	g.AddHandlersImport("fmt")
-	g.AddHandlersImport("strconv")
 }
 
 func (g *Generator) AddWriteResponseMethodHandlers(baseName string, codes []string, operation *openapi3.Operation) error {
@@ -555,16 +576,7 @@ func (g *Generator) AddWriteResponseMethodHandlers(baseName string, codes []stri
 			Cond: Eq(Sel(I("response"), "Response"+code), I("nil")),
 			Body: &ast.BlockStmt{
 				List: []ast.Stmt{
-					&ast.ExprStmt{
-						X: &ast.CallExpr{
-							Fun: Sel(I("http"), "Error"),
-							Args: []ast.Expr{
-								I("w"),
-								Str("{\"error\":\"InternalServerError\"}"),
-								Sel(I("http"), "StatusInternalServerError"),
-							},
-						},
-					},
+					writeStandardErrorCall("StatusInternalServerError", Str("Internal Server Error")),
 					Ret(),
 				},
 			},
@@ -577,6 +589,7 @@ func (g *Generator) AddWriteResponseMethodHandlers(baseName string, codes []stri
 						Fun: Sel(I("h"), "write"+baseName+code+"ResponseHeaders"),
 						Args: []ast.Expr{
 							I("w"),
+							I("r"),
 							Sel(I("response"), "Response"+code),
 						},
 					},
@@ -620,6 +633,7 @@ func (g *Generator) AddWriteResponseMethodHandlers(baseName string, codes []stri
 				Fun: Sel(I("h"), "write"+baseName+code+"Response"),
 				Args: []ast.Expr{
 					I("w"),
+					I("r"),
 					Sel(I("response"), "Response"+code),
 				},
 			},
@@ -641,6 +655,7 @@ func (g *Generator) AddWriteResponseMethodHandlers(baseName string, codes []stri
 		Field("h", Star(I("Handler")), ""),
 		[]*ast.Field{
 			Field("w", Sel(I("http"), "ResponseWriter"), ""),
+			Field("r", Star(Sel(I("http"), "Request")), ""),
 			Field("response", Star(Sel(I(g.GetCurrentModelsPackage()), baseName+"Response")), ""),
 		},
 		nil,
@@ -649,16 +664,7 @@ func (g *Generator) AddWriteResponseMethodHandlers(baseName string, codes []stri
 				Tag:  Sel(I("response"), "StatusCode"),
 				Body: switchBody,
 			},
-			&ast.ExprStmt{
-				X: &ast.CallExpr{
-					Fun: Sel(I("http"), "Error"),
-					Args: []ast.Expr{
-						I("w"),
-						Str("{\"error\":\"InternalServerError\"}"),
-						Sel(I("http"), "StatusInternalServerError"),
-					},
-				},
-			},
+			writeStandardErrorCall("StatusInternalServerError", Str("Internal Server Error")),
 		},
 	)
 
@@ -694,7 +700,7 @@ func (g *Generator) AddWriteHeadersForResponseCode(baseName string, code string,
 		Rhs: []ast.Expr{
 			&ast.CallExpr{
 				Fun:  Sel(I("json"), "Marshal"),
-				Args: []ast.Expr{Sel(I("r"), "Headers")},
+				Args: []ast.Expr{Sel(I("resp"), "Headers")},
 			},
 		},
 	})
@@ -702,16 +708,7 @@ func (g *Generator) AddWriteHeadersForResponseCode(baseName string, code string,
 		Cond: Ne(I("err"), I("nil")),
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
-				&ast.ExprStmt{
-					X: &ast.CallExpr{
-						Fun: Sel(I("http"), "Error"),
-						Args: []ast.Expr{
-							I("w"),
-							Str("{\"error\":\"InternalServerError\"}"),
-							Sel(I("http"), "StatusInternalServerError"),
-						},
-					},
-				},
+				writeStandardErrorCall("StatusInternalServerError", Str("Internal Server Error")),
 				Ret(),
 			},
 		},
@@ -747,16 +744,7 @@ func (g *Generator) AddWriteHeadersForResponseCode(baseName string, code string,
 		Cond: Ne(I("err"), I("nil")),
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
-				&ast.ExprStmt{
-					X: &ast.CallExpr{
-						Fun: Sel(I("http"), "Error"),
-						Args: []ast.Expr{
-							I("w"),
-							Str("{\"error\":\"InternalServerError\"}"),
-							Sel(I("http"), "StatusInternalServerError"),
-						},
-					},
-				},
+				writeStandardErrorCall("StatusInternalServerError", Str("Internal Server Error")),
 				Ret(),
 			},
 		},
@@ -789,7 +777,8 @@ func (g *Generator) AddWriteHeadersForResponseCode(baseName string, code string,
 		Field("h", Star(I("Handler")), ""),
 		[]*ast.Field{
 			Field("w", Sel(I("http"), "ResponseWriter"), ""),
-			Field("r", Star(Sel(I(g.GetCurrentModelsPackage()), baseName+"Response"+code)), ""),
+			Field("r", Star(Sel(I("http"), "Request")), ""),
+			Field("resp", Star(Sel(I(g.GetCurrentModelsPackage()), baseName+"Response"+code)), ""),
 		},
 		nil,
 		body,
@@ -822,7 +811,7 @@ func (g *Generator) AddWriteResponseCode(baseName string, code string, response 
 							Args: []ast.Expr{I("w")},
 						}, "Encode"),
 
-						Args: []ast.Expr{Sel(I("r"), "Body")},
+						Args: []ast.Expr{Sel(I("resp"), "Body")},
 					},
 				},
 			})
@@ -830,16 +819,7 @@ func (g *Generator) AddWriteResponseCode(baseName string, code string, response 
 				Cond: Ne(I("err"), I("nil")),
 				Body: &ast.BlockStmt{
 					List: []ast.Stmt{
-						&ast.ExprStmt{
-							X: &ast.CallExpr{
-								Fun: Sel(I("http"), "Error"),
-								Args: []ast.Expr{
-									I("w"),
-									Str("{\"error\":\"InternalServerError\"}"),
-									Sel(I("http"), "StatusInternalServerError"),
-								},
-							},
-						},
+						writeStandardErrorCall("StatusInternalServerError", Str("Internal Server Error")),
 						Ret(),
 					},
 				},
@@ -866,7 +846,8 @@ func (g *Generator) AddWriteResponseCode(baseName string, code string, response 
 		Field("h", Star(I("Handler")), ""),
 		[]*ast.Field{
 			Field("w", Sel(I("http"), "ResponseWriter"), ""),
-			Field("r", Star(Sel(I(g.GetCurrentModelsPackage()), baseName+"Response"+code)), ""),
+			Field("r", Star(Sel(I("http"), "Request")), ""),
+			Field("resp", Star(Sel(I(g.GetCurrentModelsPackage()), baseName+"Response"+code)), ""),
 		},
 		nil,
 		body,

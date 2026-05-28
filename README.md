@@ -67,6 +67,36 @@ func (h *petHandler) HandleUpdatePet(
 }
 ```
 
+## Error envelope
+
+Every internal failure emitted by a generated handler — request parse errors,
+unsupported `Content-Type`, the handler returning `nil`, and JSON encode
+failures inside the response writers — is routed through a single
+`ErrorHandler` callback. The default reproduces the body the generator
+emitted before the hook existed:
+
+```
+HTTP/1.1 400 Bad Request
+Content-Type: text/plain; charset=utf-8
+
+{"error":"field email is required"}
+```
+
+(Body shape is `{"error":"<msg>"}`; status comes from the call site. 500
+sites pass `"Internal Server Error"` and never leak the original
+`err.Error()`; 415 sites pass `"Unsupported Content-Type"`.)
+
+```go
+api.NewHandler(impl, api.WithErrorHandler(func(w http.ResponseWriter, r *http.Request, status int, msg string) {
+    utils.WriteErr(w, r, utils.ErrorResponse{
+        Code:    canonicalCode(status),
+        Message: msg,
+        ReqID:   chimw.GetReqID(r.Context()),
+        TraceID: tracing.FromCtx(r.Context()),
+    })
+}))
+```
+
 ## Documentation
 
 - **[Design & Usage](docs/design/)** — Full architecture reference: code generation pipeline, AST helpers, two-layer validation, OpenAPI→validator tag mapping, handler interfaces, and test strategy.

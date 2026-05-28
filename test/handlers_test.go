@@ -436,6 +436,156 @@ func Test500(t *testing.T) {
 		var responseBody map[string]string
 		err = json.NewDecoder(resp.Body).Decode(&responseBody)
 		assert.NoError(t, err)
-		assert.Equal(t, "InternalServerError", responseBody["error"])
+		assert.Equal(t, "Internal Server Error", responseBody["error"])
+	})
+}
+
+func TestWithErrorHandler(t *testing.T) {
+	custom := func(w http.ResponseWriter, r *http.Request, status int, msg string) {
+		w.Header().Set("Content-Type", "application/x-custom+json")
+		w.Header().Set("X-Captured-Status", "yes")
+		w.WriteHeader(status)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"my_status": status,
+			"my_msg":    msg,
+			"sentinel":  "custom-handler-ran",
+		})
+	}
+
+	router := chi.NewRouter()
+	api.NewHandler(&mockHandler{}, api.WithErrorHandler(custom)).AddRoutes(router)
+	server := httptest.NewServer(router)
+	defer server.Close()
+
+	req, _ := http.NewRequest(http.MethodPost,
+		server.URL+"/path/to/param/resourse?count=3",
+		bytes.NewBufferString(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", "k")
+	req.Header.Set("Cookie", "required-cookie-param=required-value")
+
+	resp, err := http.DefaultClient.Do(req)
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	assert.Equal(t, "application/x-custom+json", resp.Header.Get("Content-Type"))
+	assert.Equal(t, "yes", resp.Header.Get("X-Captured-Status"))
+
+	var body map[string]any
+	err = json.NewDecoder(resp.Body).Decode(&body)
+	assert.NoError(t, err)
+	assert.Equal(t, "custom-handler-ran", body["sentinel"])
+	assert.EqualValues(t, http.StatusBadRequest, body["my_status"])
+	assert.NotEmpty(t, body["my_msg"], "msg should propagate from parser")
+}
+
+func TestSetErrorHandler(t *testing.T) {
+	var captured struct {
+		status int
+		msg    string
+	}
+	h := api.NewHandler(&mockHandler{})
+	h.SetErrorHandler(func(w http.ResponseWriter, r *http.Request, status int, msg string) {
+		captured.status = status
+		captured.msg = msg
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte("ok"))
+	})
+
+	router := chi.NewRouter()
+	h.AddRoutes(router)
+	server := httptest.NewServer(router)
+	defer server.Close()
+
+	req, _ := http.NewRequest(http.MethodPost,
+		server.URL+"/path/to/param/resourse?count=3",
+		bytes.NewBufferString(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", "k")
+	req.Header.Set("Cookie", "required-cookie-param=required-value")
+
+	resp, err := http.DefaultClient.Do(req)
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	assert.Equal(t, http.StatusBadRequest, captured.status)
+	assert.NotEmpty(t, captured.msg)
+}
+
+func TestErrorHandlerAliasIsCrossPackage(t *testing.T) {
+	var eh = func(w http.ResponseWriter, r *http.Request, status int, msg string) {
+		_ = msg
+		w.WriteHeader(status)
+	}
+	var _ api.ErrorHandler = eh
+
+	h := api.NewHandler(&mockHandler{})
+	h.SetErrorHandler(eh)
+	_ = h
+}
+
+func TestDefaultErrorEnvelope(t *testing.T) {
+	router := chi.NewRouter()
+	api.NewHandler(&mockHandler{}).AddRoutes(router)
+
+	server := httptest.NewServer(router)
+	defer server.Close()
+
+	doRequest := func(t *testing.T, req *http.Request) (*http.Response, map[string]string) {
+		t.Helper()
+		resp, err := http.DefaultClient.Do(req)
+		assert.NoError(t, err)
+		var body map[string]string
+		err = json.NewDecoder(resp.Body).Decode(&body)
+		_ = resp.Body.Close()
+		assert.NoError(t, err)
+		return resp, body
+	}
+
+	t.Run("400 parse error", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodPost,
+			server.URL+"/path/to/param/resourse?count=3",
+			bytes.NewBufferString(`{}`))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Idempotency-Key", "k")
+		req.Header.Set("Cookie", "required-cookie-param=required-value")
+
+		resp, body := doRequest(t, req)
+		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+		assert.NotEmpty(t, body["error"], "error message should propagate from parser")
+	})
+
+	t.Run("415 unsupported content type", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodPost,
+			server.URL+"/path/to/param/resourse?count=3",
+			bytes.NewBufferString(`<xml/>`))
+		req.Header.Set("Content-Type", "application/xml")
+		req.Header.Set("Idempotency-Key", "k")
+		req.Header.Set("Cookie", "required-cookie-param=required-value")
+
+		resp, body := doRequest(t, req)
+		assert.Equal(t, http.StatusUnsupportedMediaType, resp.StatusCode)
+		assert.Equal(t, "Unsupported Content-Type", body["error"])
+	})
+
+	t.Run("500 handler returned nil response", func(t *testing.T) {
+		router500 := chi.NewRouter()
+		api.NewHandler(&mockHandler500{}).AddRoutes(router500)
+		srv500 := httptest.NewServer(router500)
+		defer srv500.Close()
+
+		req, _ := http.NewRequest(http.MethodPost,
+			srv500.URL+"/path/to/param/resourses?count=3",
+			bytes.NewBufferString(
+				`{"name":"value","description":"d","date":"2023-10-01T00:00:00+03:00","code_for_response":200,"enum-val":"value1"}`))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Idempotency-Key", "k")
+		req.Header.Set("Optional-Header", "2023-10-01T00:00:00+03:00")
+		req.Header.Set("Cookie", "required-cookie-param=required-value")
+
+		resp, body := doRequest(t, req)
+		assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+		assert.Equal(t, "Internal Server Error", body["error"])
 	})
 }

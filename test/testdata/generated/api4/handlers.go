@@ -19,12 +19,17 @@ type GetResourceHandler interface {
 	HandleGetResource(ctx context.Context, r api4models.GetResourceRequest) (*api4models.GetResourceResponse, error)
 }
 type Handler struct {
-	validator   *validator.Validate
-	getResource GetResourceHandler
+	validator    *validator.Validate
+	getResource  GetResourceHandler
+	errorHandler ErrorHandler
 }
 
-func NewHandler(getResource GetResourceHandler) *Handler {
-	return &Handler{validator: validator.New(validator.WithRequiredStructEnabled()), getResource: getResource}
+func NewHandler(getResource GetResourceHandler, opts ...Option) *Handler {
+	h := &Handler{validator: validator.New(validator.WithRequiredStructEnabled()), getResource: getResource, errorHandler: DefaultErrorHandler}
+	for _, opt := range opts {
+		opt(h)
+	}
+	return h
 }
 func (h *Handler) AddRoutes(router chi.Router) {
 	router.Get("/path/to/{id}", h.handleGetResource)
@@ -52,63 +57,79 @@ func (h *Handler) parseGetResourceRequest(r *http.Request) (*api4models.GetResou
 func GetResource200(body defmodels.NewResourseResponse) *api4models.GetResourceResponse {
 	return &api4models.GetResourceResponse{StatusCode: 200, Response200: &api4models.GetResourceResponse200{Body: body}}
 }
-func (h *Handler) writeGetResource200Response(w http.ResponseWriter, r *api4models.GetResourceResponse200) {
+func (h *Handler) writeGetResource200Response(w http.ResponseWriter, r *http.Request, resp *api4models.GetResourceResponse200) {
 	var err error
-	err = json.NewEncoder(w).Encode(r.Body)
+	err = json.NewEncoder(w).Encode(resp.Body)
 	if err != nil {
-		http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 }
 func GetResource404(body defmodels.ErrorResponse) *api4models.GetResourceResponse {
 	return &api4models.GetResourceResponse{StatusCode: 404, Response404: &api4models.GetResourceResponse404{Body: body}}
 }
-func (h *Handler) writeGetResource404Response(w http.ResponseWriter, r *api4models.GetResourceResponse404) {
+func (h *Handler) writeGetResource404Response(w http.ResponseWriter, r *http.Request, resp *api4models.GetResourceResponse404) {
 	var err error
-	err = json.NewEncoder(w).Encode(r.Body)
+	err = json.NewEncoder(w).Encode(resp.Body)
 	if err != nil {
-		http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 }
-func (h *Handler) writeGetResourceResponse(w http.ResponseWriter, response *api4models.GetResourceResponse) {
+func (h *Handler) writeGetResourceResponse(w http.ResponseWriter, r *http.Request, response *api4models.GetResourceResponse) {
 	switch response.StatusCode {
 	case 200:
 		if response.Response200 == nil {
-			http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+			h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 			return
 		}
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.WriteHeader(response.StatusCode)
-		h.writeGetResource200Response(w, response.Response200)
+		h.writeGetResource200Response(w, r, response.Response200)
 		return
 	case 404:
 		if response.Response404 == nil {
-			http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+			h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 			return
 		}
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.WriteHeader(response.StatusCode)
-		h.writeGetResource404Response(w, response.Response404)
+		h.writeGetResource404Response(w, r, response.Response404)
 		return
 	}
-	http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+	h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 }
 func (h *Handler) handleGetResourceRequest(w http.ResponseWriter, r *http.Request) {
 	request, err := h.parseGetResourceRequest(r)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("{\"error\":%s}", strconv.Quote(err.Error())), http.StatusBadRequest)
+		h.errorHandler(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 	ctx := r.Context()
 	response, err := h.getResource.HandleGetResource(ctx, *request)
 	if err != nil || response == nil {
-		http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
-	h.writeGetResourceResponse(w, response)
+	h.writeGetResourceResponse(w, r, response)
 	return
 }
 func (h *Handler) handleGetResource(w http.ResponseWriter, r *http.Request) {
 	h.handleGetResourceRequest(w, r)
+}
+
+type ErrorHandler = func(w http.ResponseWriter, r *http.Request, status int, msg string)
+type Option func(*Handler)
+
+func WithErrorHandler(eh ErrorHandler) Option {
+	return func(h *Handler) {
+		h.errorHandler = eh
+	}
+}
+func (h *Handler) SetErrorHandler(eh ErrorHandler) {
+	h.errorHandler = eh
+}
+
+var DefaultErrorHandler ErrorHandler = func(w http.ResponseWriter, r *http.Request, status int, msg string) {
+	http.Error(w, fmt.Sprintf("{\"error\":%s}", strconv.Quote(msg)), status)
 }

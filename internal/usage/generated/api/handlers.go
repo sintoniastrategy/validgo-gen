@@ -21,12 +21,17 @@ type CreateHandler interface {
 	HandleCreate(ctx context.Context, r apimodels.CreateRequest) (*apimodels.CreateResponse, error)
 }
 type Handler struct {
-	validator *validator.Validate
-	create    CreateHandler
+	validator    *validator.Validate
+	create       CreateHandler
+	errorHandler ErrorHandler
 }
 
-func NewHandler(create CreateHandler) *Handler {
-	return &Handler{validator: validator.New(validator.WithRequiredStructEnabled()), create: create}
+func NewHandler(create CreateHandler, opts ...Option) *Handler {
+	h := &Handler{validator: validator.New(validator.WithRequiredStructEnabled()), create: create, errorHandler: DefaultErrorHandler}
+	for _, opt := range opts {
+		opt(h)
+	}
+	return h
 }
 func (h *Handler) AddRoutes(router chi.Router) {
 	router.Post("/path/to/{param}/resours{suffix}", h.handleCreate)
@@ -248,24 +253,24 @@ func (h *Handler) parseCreateRequest(r *http.Request) (*apimodels.CreateRequest,
 func Create200(body apimodels.NewResourseResponse, headers apimodels.CreateResponse200Headers) *apimodels.CreateResponse {
 	return &apimodels.CreateResponse{StatusCode: 200, Response200: &apimodels.CreateResponse200{Body: body, Headers: headers}}
 }
-func (h *Handler) writeCreate200Response(w http.ResponseWriter, r *apimodels.CreateResponse200) {
+func (h *Handler) writeCreate200Response(w http.ResponseWriter, r *http.Request, resp *apimodels.CreateResponse200) {
 	var err error
-	err = json.NewEncoder(w).Encode(r.Body)
+	err = json.NewEncoder(w).Encode(resp.Body)
 	if err != nil {
-		http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 }
-func (h *Handler) writeCreate200ResponseHeaders(w http.ResponseWriter, r *apimodels.CreateResponse200) {
-	headersJSON, err := json.Marshal(r.Headers)
+func (h *Handler) writeCreate200ResponseHeaders(w http.ResponseWriter, r *http.Request, resp *apimodels.CreateResponse200) {
+	headersJSON, err := json.Marshal(resp.Headers)
 	if err != nil {
-		http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 	var headers map[string]string
 	err = json.Unmarshal(headersJSON, &headers)
 	if err != nil {
-		http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 	for key, value := range headers {
@@ -275,57 +280,57 @@ func (h *Handler) writeCreate200ResponseHeaders(w http.ResponseWriter, r *apimod
 func Create400() *apimodels.CreateResponse {
 	return &apimodels.CreateResponse{StatusCode: 400, Response400: &apimodels.CreateResponse400{}}
 }
-func (h *Handler) writeCreate400Response(w http.ResponseWriter, r *apimodels.CreateResponse400) {
+func (h *Handler) writeCreate400Response(w http.ResponseWriter, r *http.Request, resp *apimodels.CreateResponse400) {
 }
 func Create404() *apimodels.CreateResponse {
 	return &apimodels.CreateResponse{StatusCode: 404, Response404: &apimodels.CreateResponse404{}}
 }
-func (h *Handler) writeCreate404Response(w http.ResponseWriter, r *apimodels.CreateResponse404) {
+func (h *Handler) writeCreate404Response(w http.ResponseWriter, r *http.Request, resp *apimodels.CreateResponse404) {
 }
-func (h *Handler) writeCreateResponse(w http.ResponseWriter, response *apimodels.CreateResponse) {
+func (h *Handler) writeCreateResponse(w http.ResponseWriter, r *http.Request, response *apimodels.CreateResponse) {
 	switch response.StatusCode {
 	case 200:
 		if response.Response200 == nil {
-			http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+			h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 			return
 		}
-		h.writeCreate200ResponseHeaders(w, response.Response200)
+		h.writeCreate200ResponseHeaders(w, r, response.Response200)
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.WriteHeader(response.StatusCode)
-		h.writeCreate200Response(w, response.Response200)
+		h.writeCreate200Response(w, r, response.Response200)
 		return
 	case 400:
 		if response.Response400 == nil {
-			http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+			h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 			return
 		}
 		w.WriteHeader(response.StatusCode)
-		h.writeCreate400Response(w, response.Response400)
+		h.writeCreate400Response(w, r, response.Response400)
 		return
 	case 404:
 		if response.Response404 == nil {
-			http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+			h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 			return
 		}
 		w.WriteHeader(response.StatusCode)
-		h.writeCreate404Response(w, response.Response404)
+		h.writeCreate404Response(w, r, response.Response404)
 		return
 	}
-	http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+	h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 }
 func (h *Handler) handleCreateRequest(w http.ResponseWriter, r *http.Request) {
 	request, err := h.parseCreateRequest(r)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("{\"error\":%s}", strconv.Quote(err.Error())), http.StatusBadRequest)
+		h.errorHandler(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 	ctx := r.Context()
 	response, err := h.create.HandleCreate(ctx, *request)
 	if err != nil || response == nil {
-		http.Error(w, "{\"error\":\"InternalServerError\"}", http.StatusInternalServerError)
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
-	h.writeCreateResponse(w, response)
+	h.writeCreateResponse(w, r, response)
 	return
 }
 func (h *Handler) handleCreate(w http.ResponseWriter, r *http.Request) {
@@ -338,7 +343,7 @@ func (h *Handler) handleCreate(w http.ResponseWriter, r *http.Request) {
 		h.handleCreateRequest(w, r)
 		return
 	default:
-		http.Error(w, "{\"error\":\"Unsupported Content-Type\"}", http.StatusUnsupportedMediaType)
+		h.errorHandler(w, r, http.StatusUnsupportedMediaType, "Unsupported Content-Type")
 		return
 	}
 }
@@ -527,4 +532,20 @@ func ValidateNewResourseResponseJSON(jsonData json.RawMessage) error {
 		}
 	}
 	return nil
+}
+
+type ErrorHandler = func(w http.ResponseWriter, r *http.Request, status int, msg string)
+type Option func(*Handler)
+
+func WithErrorHandler(eh ErrorHandler) Option {
+	return func(h *Handler) {
+		h.errorHandler = eh
+	}
+}
+func (h *Handler) SetErrorHandler(eh ErrorHandler) {
+	h.errorHandler = eh
+}
+
+var DefaultErrorHandler ErrorHandler = func(w http.ResponseWriter, r *http.Request, status int, msg string) {
+	http.Error(w, fmt.Sprintf("{\"error\":%s}", strconv.Quote(msg)), status)
 }
