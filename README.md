@@ -100,8 +100,7 @@ var DefaultErrorHandler ErrorHandler
 
 `ErrorHandler` is a **type alias** (not a named type), so a single bare
 `func(http.ResponseWriter, *http.Request, int, string)` value assigns to
-every package's setter without a conversion — which is what makes the
-aggregator-loop pattern below possible.
+every package's setter without a conversion.
 
 **Constructor option** — idiomatic for one-off handlers:
 
@@ -113,17 +112,6 @@ api.NewHandler(impl, api.WithErrorHandler(func(w http.ResponseWriter, r *http.Re
         ReqID:   chimw.GetReqID(r.Context()),
         TraceID: tracing.FromCtx(r.Context()),
     })
-}))
-```
-
-**Wrapping the default** — extra behavior, same body:
-
-```go
-api.NewHandler(impl, api.WithErrorHandler(func(w http.ResponseWriter, r *http.Request, status int, msg string) {
-    if status >= 500 {
-        slog.ErrorContext(r.Context(), "api 5xx", "status", status, "msg", msg, "path", r.URL.Path)
-    }
-    api.DefaultErrorHandler(w, r, status, msg)
 }))
 ```
 
