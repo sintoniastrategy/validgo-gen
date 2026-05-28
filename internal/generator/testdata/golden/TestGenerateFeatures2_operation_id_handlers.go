@@ -70,14 +70,14 @@ func (h *Handler) writeOpResponse(w http.ResponseWriter, r *http.Request, respon
 	switch response.StatusCode {
 	case 200:
 		if response.Response200 == nil {
-			h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+			h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 			return
 		}
 		w.WriteHeader(response.StatusCode)
 		h.writeOp200Response(w, r, response.Response200)
 		return
 	}
-	h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+	h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 }
 func (h *Handler) handleOpRequest(w http.ResponseWriter, r *http.Request) {
 	request, err := h.parseOpRequest(r)
@@ -88,7 +88,7 @@ func (h *Handler) handleOpRequest(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	response, err := h.op.HandleOp(ctx, *request)
 	if err != nil || response == nil {
-		h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 	h.writeOpResponse(w, r, response)

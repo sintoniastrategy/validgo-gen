@@ -51,14 +51,14 @@ func (h *Handler) writeGetExample2Response(w http.ResponseWriter, r *http.Reques
 	switch response.StatusCode {
 	case 200:
 		if response.Response200 == nil {
-			h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+			h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 			return
 		}
 		w.WriteHeader(response.StatusCode)
 		h.writeGetExample2200Response(w, r, response.Response200)
 		return
 	}
-	h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+	h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 }
 func (h *Handler) handleGetExample2Request(w http.ResponseWriter, r *http.Request) {
 	request, err := h.parseGetExample2Request(r)
@@ -69,7 +69,7 @@ func (h *Handler) handleGetExample2Request(w http.ResponseWriter, r *http.Reques
 	ctx := r.Context()
 	response, err := h.getExample2.HandleGetExample2(ctx, *request)
 	if err != nil || response == nil {
-		h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 	h.writeGetExample2Response(w, r, response)
@@ -194,13 +194,13 @@ func (h *Handler) writePostExampleParamName200Response(w http.ResponseWriter, r 
 func (h *Handler) writePostExampleParamName200ResponseHeaders(w http.ResponseWriter, r *http.Request, resp *packagenamemodels.PostExampleParamNameResponse200) {
 	headersJSON, err := json.Marshal(resp.Headers)
 	if err != nil {
-		h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 	var headers map[string]string
 	err = json.Unmarshal(headersJSON, &headers)
 	if err != nil {
-		h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 	for key, value := range headers {
@@ -211,7 +211,7 @@ func (h *Handler) writePostExampleParamNameResponse(w http.ResponseWriter, r *ht
 	switch response.StatusCode {
 	case 200:
 		if response.Response200 == nil {
-			h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+			h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 			return
 		}
 		h.writePostExampleParamName200ResponseHeaders(w, r, response.Response200)
@@ -219,7 +219,7 @@ func (h *Handler) writePostExampleParamNameResponse(w http.ResponseWriter, r *ht
 		h.writePostExampleParamName200Response(w, r, response.Response200)
 		return
 	}
-	h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+	h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 }
 func (h *Handler) handlePostExampleParamNameRequest(w http.ResponseWriter, r *http.Request) {
 	request, err := h.parsePostExampleParamNameRequest(r)
@@ -230,7 +230,7 @@ func (h *Handler) handlePostExampleParamNameRequest(w http.ResponseWriter, r *ht
 	ctx := r.Context()
 	response, err := h.postExampleParamName.HandlePostExampleParamName(ctx, *request)
 	if err != nil || response == nil {
-		h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 	h.writePostExampleParamNameResponse(w, r, response)

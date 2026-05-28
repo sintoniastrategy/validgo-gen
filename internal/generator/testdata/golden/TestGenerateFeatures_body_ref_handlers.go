@@ -70,14 +70,14 @@ func (h *Handler) writePostExampleResponse(w http.ResponseWriter, r *http.Reques
 	switch response.StatusCode {
 	case 200:
 		if response.Response200 == nil {
-			h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+			h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 			return
 		}
 		w.WriteHeader(response.StatusCode)
 		h.writePostExample200Response(w, r, response.Response200)
 		return
 	}
-	h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+	h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 }
 func (h *Handler) handlePostExampleRequest(w http.ResponseWriter, r *http.Request) {
 	request, err := h.parsePostExampleRequest(r)
@@ -88,7 +88,7 @@ func (h *Handler) handlePostExampleRequest(w http.ResponseWriter, r *http.Reques
 	ctx := r.Context()
 	response, err := h.postExample.HandlePostExample(ctx, *request)
 	if err != nil || response == nil {
-		h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 	h.writePostExampleResponse(w, r, response)

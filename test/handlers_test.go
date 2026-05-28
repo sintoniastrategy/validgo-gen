@@ -436,7 +436,7 @@ func Test500(t *testing.T) {
 		var responseBody map[string]string
 		err = json.NewDecoder(resp.Body).Decode(&responseBody)
 		assert.NoError(t, err)
-		assert.Equal(t, "InternalServerError", responseBody["error"])
+		assert.Equal(t, "Internal Server Error", responseBody["error"])
 	})
 }
 
@@ -586,6 +586,6 @@ func TestDefaultErrorEnvelope(t *testing.T) {
 
 		resp, body := doRequest(t, req)
 		assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
-		assert.Equal(t, "InternalServerError", body["error"])
+		assert.Equal(t, "Internal Server Error", body["error"])
 	})
 }

@@ -61,7 +61,7 @@ func (h *Handler) writeGetResource200Response(w http.ResponseWriter, r *http.Req
 	var err error
 	err = json.NewEncoder(w).Encode(resp.Body)
 	if err != nil {
-		h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 }
@@ -72,7 +72,7 @@ func (h *Handler) writeGetResource404Response(w http.ResponseWriter, r *http.Req
 	var err error
 	err = json.NewEncoder(w).Encode(resp.Body)
 	if err != nil {
-		h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 }
@@ -80,7 +80,7 @@ func (h *Handler) writeGetResourceResponse(w http.ResponseWriter, r *http.Reques
 	switch response.StatusCode {
 	case 200:
 		if response.Response200 == nil {
-			h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+			h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 			return
 		}
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -89,7 +89,7 @@ func (h *Handler) writeGetResourceResponse(w http.ResponseWriter, r *http.Reques
 		return
 	case 404:
 		if response.Response404 == nil {
-			h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+			h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 			return
 		}
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -97,7 +97,7 @@ func (h *Handler) writeGetResourceResponse(w http.ResponseWriter, r *http.Reques
 		h.writeGetResource404Response(w, r, response.Response404)
 		return
 	}
-	h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+	h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 }
 func (h *Handler) handleGetResourceRequest(w http.ResponseWriter, r *http.Request) {
 	request, err := h.parseGetResourceRequest(r)
@@ -108,7 +108,7 @@ func (h *Handler) handleGetResourceRequest(w http.ResponseWriter, r *http.Reques
 	ctx := r.Context()
 	response, err := h.getResource.HandleGetResource(ctx, *request)
 	if err != nil || response == nil {
-		h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 	h.writeGetResourceResponse(w, r, response)

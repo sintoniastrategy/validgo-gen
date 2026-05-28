@@ -257,20 +257,20 @@ func (h *Handler) writeCreate200Response(w http.ResponseWriter, r *http.Request,
 	var err error
 	err = json.NewEncoder(w).Encode(resp.Body)
 	if err != nil {
-		h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 }
 func (h *Handler) writeCreate200ResponseHeaders(w http.ResponseWriter, r *http.Request, resp *apimodels.CreateResponse200) {
 	headersJSON, err := json.Marshal(resp.Headers)
 	if err != nil {
-		h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 	var headers map[string]string
 	err = json.Unmarshal(headersJSON, &headers)
 	if err != nil {
-		h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 	for key, value := range headers {
@@ -291,7 +291,7 @@ func (h *Handler) writeCreateResponse(w http.ResponseWriter, r *http.Request, re
 	switch response.StatusCode {
 	case 200:
 		if response.Response200 == nil {
-			h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+			h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 			return
 		}
 		h.writeCreate200ResponseHeaders(w, r, response.Response200)
@@ -301,7 +301,7 @@ func (h *Handler) writeCreateResponse(w http.ResponseWriter, r *http.Request, re
 		return
 	case 400:
 		if response.Response400 == nil {
-			h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+			h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 			return
 		}
 		w.WriteHeader(response.StatusCode)
@@ -309,14 +309,14 @@ func (h *Handler) writeCreateResponse(w http.ResponseWriter, r *http.Request, re
 		return
 	case 404:
 		if response.Response404 == nil {
-			h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+			h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 			return
 		}
 		w.WriteHeader(response.StatusCode)
 		h.writeCreate404Response(w, r, response.Response404)
 		return
 	}
-	h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+	h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 }
 func (h *Handler) handleCreateRequest(w http.ResponseWriter, r *http.Request) {
 	request, err := h.parseCreateRequest(r)
@@ -327,7 +327,7 @@ func (h *Handler) handleCreateRequest(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	response, err := h.create.HandleCreate(ctx, *request)
 	if err != nil || response == nil {
-		h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 	h.writeCreateResponse(w, r, response)

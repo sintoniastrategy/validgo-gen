@@ -70,7 +70,7 @@ func (h *Handler) writeCreate200Response(w http.ResponseWriter, r *http.Request,
 	var err error
 	err = json.NewEncoder(w).Encode(resp.Body)
 	if err != nil {
-		h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 }
@@ -78,7 +78,7 @@ func (h *Handler) writeCreateResponse(w http.ResponseWriter, r *http.Request, re
 	switch response.StatusCode {
 	case 200:
 		if response.Response200 == nil {
-			h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+			h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 			return
 		}
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -86,7 +86,7 @@ func (h *Handler) writeCreateResponse(w http.ResponseWriter, r *http.Request, re
 		h.writeCreate200Response(w, r, response.Response200)
 		return
 	}
-	h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+	h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 }
 func (h *Handler) handleCreateRequest(w http.ResponseWriter, r *http.Request) {
 	request, err := h.parseCreateRequest(r)
@@ -97,7 +97,7 @@ func (h *Handler) handleCreateRequest(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	response, err := h.create.HandleCreate(ctx, *request)
 	if err != nil || response == nil {
-		h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 	h.writeCreateResponse(w, r, response)

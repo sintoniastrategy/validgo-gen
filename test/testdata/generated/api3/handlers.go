@@ -49,7 +49,7 @@ func (h *Handler) writeListResources200Response(w http.ResponseWriter, r *http.R
 	var err error
 	err = json.NewEncoder(w).Encode(resp.Body)
 	if err != nil {
-		h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 }
@@ -57,7 +57,7 @@ func (h *Handler) writeListResourcesResponse(w http.ResponseWriter, r *http.Requ
 	switch response.StatusCode {
 	case 200:
 		if response.Response200 == nil {
-			h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+			h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 			return
 		}
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -65,7 +65,7 @@ func (h *Handler) writeListResourcesResponse(w http.ResponseWriter, r *http.Requ
 		h.writeListResources200Response(w, r, response.Response200)
 		return
 	}
-	h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+	h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 }
 func (h *Handler) handleListResourcesRequest(w http.ResponseWriter, r *http.Request) {
 	request, err := h.parseListResourcesRequest(r)
@@ -76,7 +76,7 @@ func (h *Handler) handleListResourcesRequest(w http.ResponseWriter, r *http.Requ
 	ctx := r.Context()
 	response, err := h.listResources.HandleListResources(ctx, *request)
 	if err != nil || response == nil {
-		h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 	h.writeListResourcesResponse(w, r, response)
@@ -114,14 +114,14 @@ func (h *Handler) writeDeleteResourceResponse(w http.ResponseWriter, r *http.Req
 	switch response.StatusCode {
 	case 200:
 		if response.Response200 == nil {
-			h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+			h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 			return
 		}
 		w.WriteHeader(response.StatusCode)
 		h.writeDeleteResource200Response(w, r, response.Response200)
 		return
 	}
-	h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+	h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 }
 func (h *Handler) handleDeleteResourceRequest(w http.ResponseWriter, r *http.Request) {
 	request, err := h.parseDeleteResourceRequest(r)
@@ -132,7 +132,7 @@ func (h *Handler) handleDeleteResourceRequest(w http.ResponseWriter, r *http.Req
 	ctx := r.Context()
 	response, err := h.deleteResource.HandleDeleteResource(ctx, *request)
 	if err != nil || response == nil {
-		h.errorHandler(w, r, http.StatusInternalServerError, "InternalServerError")
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 	h.writeDeleteResourceResponse(w, r, response)
