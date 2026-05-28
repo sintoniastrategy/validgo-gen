@@ -6,8 +6,6 @@ import (
 	"go/token"
 )
 
-// standardErrorHelperSrc is parsed and appended to every generated handlers
-// file. The "package _" prefix is discarded by go/parser.
 const standardErrorHelperSrc = `package _
 
 type ErrorHandler = func(w http.ResponseWriter, r *http.Request, status int, msg string)
