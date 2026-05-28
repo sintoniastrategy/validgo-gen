@@ -93,9 +93,9 @@ Each generated package exposes:
 ```go
 type ErrorHandler = func(w http.ResponseWriter, r *http.Request, status int, msg string)
 
-func WithErrorHandler(eh ErrorHandler) Option        // constructor option
-func (h *Handler) SetErrorHandler(eh ErrorHandler)   // post-construction setter
-var DefaultErrorHandler ErrorHandler                 // the legacy body, exported for wrapping
+func WithErrorHandler(eh ErrorHandler) Option
+func (h *Handler) SetErrorHandler(eh ErrorHandler)
+var DefaultErrorHandler ErrorHandler
 ```
 
 `ErrorHandler` is a **type alias** (not a named type), so a single bare
