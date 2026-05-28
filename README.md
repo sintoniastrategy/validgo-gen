@@ -116,21 +116,6 @@ api.NewHandler(impl, api.WithErrorHandler(func(w http.ResponseWriter, r *http.Re
 }))
 ```
 
-**Setter pattern** — better when many generated packages share one handler
-via an aggregator (fx, wire, ...):
-
-```go
-type CodegenErrorHandlerSetter interface {
-    SetErrorHandler(func(w http.ResponseWriter, r *http.Request, status int, msg string))
-}
-
-for _, gh := range []CodegenErrorHandlerSetter{
-    apiHandler, adminHandler, internalHandler, /* ... */
-} {
-    gh.SetErrorHandler(utils.CodegenErrorHandler)
-}
-```
-
 **Wrapping the default** — extra behavior, same body:
 
 ```go
