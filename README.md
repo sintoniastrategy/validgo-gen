@@ -88,22 +88,6 @@ sites pass `"InternalServerError"` and never leak the original
 
 ### Customizing the envelope
 
-Each generated package exposes:
-
-```go
-type ErrorHandler = func(w http.ResponseWriter, r *http.Request, status int, msg string)
-
-func WithErrorHandler(eh ErrorHandler) Option
-func (h *Handler) SetErrorHandler(eh ErrorHandler)
-var DefaultErrorHandler ErrorHandler
-```
-
-`ErrorHandler` is a **type alias** (not a named type), so a single bare
-`func(http.ResponseWriter, *http.Request, int, string)` value assigns to
-every package's setter without a conversion.
-
-**Constructor option** — idiomatic for one-off handlers:
-
 ```go
 api.NewHandler(impl, api.WithErrorHandler(func(w http.ResponseWriter, r *http.Request, status int, msg string) {
     utils.WriteErr(w, r, utils.ErrorResponse{
