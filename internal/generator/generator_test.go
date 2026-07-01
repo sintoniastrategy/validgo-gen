@@ -790,6 +790,81 @@ paths:
           description: OK
 `,
 		},
+		{
+			name: "TestRequiredDateTimeParams",
+			input: `openapi: 3.0.0
+info:
+  title: API
+  version: 1.0.0
+paths:
+  /example:
+    get:
+      operationId: op
+      summary: Example
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: X-Since
+          in: header
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: OK
+`,
+		},
+		{
+			name: "TestNumericParams",
+			input: `openapi: 3.0.0
+info:
+  title: API
+  version: 1.0.0
+paths:
+  /example:
+    get:
+      operationId: op
+      summary: Example
+      parameters:
+        - name: limit
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: ratio
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: page
+          in: query
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: OK
+`,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			input := strings.NewReader(tc.input)

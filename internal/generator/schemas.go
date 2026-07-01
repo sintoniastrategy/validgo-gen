@@ -197,8 +197,11 @@ func (g *Generator) AddParamsModel(baseName string, paramType string, params ope
 	fields := make([]SchemaField, 0, len(params))
 	for _, param := range params {
 		name := FormatGoLikeIdentifier(param.Value.Name)
-		if !param.Value.Schema.Value.Type.Permits(openapi3.TypeString) {
-			return errors.New("only string type parameters are supported for " + paramType + " parameters")
+		paramSchemaType := param.Value.Schema.Value.Type
+		if !paramSchemaType.Permits(openapi3.TypeString) &&
+			!paramSchemaType.Permits(openapi3.TypeInteger) &&
+			!paramSchemaType.Permits(openapi3.TypeNumber) {
+			return errors.New("only string, integer, and number parameters are supported for " + paramType + " parameters")
 		}
 		var jsonTags []string
 		var validateTags []string
