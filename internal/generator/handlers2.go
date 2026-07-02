@@ -25,6 +25,7 @@ func (g *Generator) AddParseQueryParamsMethod(baseName string, params openapi3.P
 			},
 		},
 	}
+	errDefinedAtFuncScope := false
 	for _, param := range params {
 		if param.Value.Schema == nil || param.Value.Schema.Value == nil {
 			continue
@@ -59,26 +60,32 @@ func (g *Generator) AddParseQueryParamsMethod(baseName string, params openapi3.P
 				},
 			})
 			g.AddHandlersImport("github.com/go-faster/errors")
-			switch {
-			case param.Value.Schema.Value.Type.Permits("string"):
-				bodyList = append(bodyList,
-					g.AssignStringField("queryParams", varName, FormatGoLikeIdentifier(param.Value.Name), param.Value.Schema, param.Value.Required)...,
-				)
-			default:
-				return errors.New(fmt.Sprintf("unsupported path parameter type: %v", param.Value.Schema.Value.Type)) //nolint:revive
+			stmts, definesErr, err := g.assignParamField("queryParams", varName, FormatGoLikeIdentifier(param.Value.Name), param.Value.Schema, true)
+			if err != nil {
+				return err
+			}
+			bodyList = append(bodyList, stmts...)
+			if definesErr {
+				errDefinedAtFuncScope = true
 			}
 		} else {
+			stmts, _, err := g.assignParamField("queryParams", varName, FormatGoLikeIdentifier(param.Value.Name), param.Value.Schema, false)
+			if err != nil {
+				return err
+			}
 			bodyList = append(bodyList, &ast.IfStmt{
 				Cond: Ne(I(varName), Str("")),
-				Body: &ast.BlockStmt{
-					List: g.AssignStringField("queryParams", varName, FormatGoLikeIdentifier(param.Value.Name), param.Value.Schema, param.Value.Required),
-				},
+				Body: &ast.BlockStmt{List: stmts},
 			})
 		}
 	}
+	validatorTok := token.DEFINE
+	if errDefinedAtFuncScope {
+		validatorTok = token.ASSIGN
+	}
 	bodyList = append(bodyList, &ast.AssignStmt{
 		Lhs: []ast.Expr{I("err")},
-		Tok: token.DEFINE,
+		Tok: validatorTok,
 		Rhs: []ast.Expr{
 			&ast.CallExpr{
 				Fun: Sel(Sel(I("h"), "validator"), "Struct"),
@@ -172,6 +179,109 @@ func (g *Generator) AssignStringField(paramsName string, varName string, fieldNa
 	}}
 }
 
+func (g *Generator) assignParamField(paramsName, varName, fieldName string, schema *openapi3.SchemaRef, required bool) ([]ast.Stmt, bool, error) {
+	switch {
+	case schema.Value.Type.Permits(openapi3.TypeString):
+		return g.AssignStringField(paramsName, varName, fieldName, schema, required),
+			schema.Value.Format == "date-time", nil
+	case schema.Value.Type.Permits(openapi3.TypeInteger), schema.Value.Type.Permits(openapi3.TypeNumber):
+		return g.AssignNumericField(paramsName, varName, fieldName, schema, required), true, nil
+	default:
+		return nil, false, errors.New("unsupported parameter type: " + fmt.Sprint(schema.Value.Type))
+	}
+}
+
+func (g *Generator) AssignNumericField(paramsName, varName, fieldName string, param *openapi3.SchemaRef, required bool) []ast.Stmt {
+	g.AddHandlersImport("strconv")
+	g.AddHandlersImport("github.com/go-faster/errors")
+
+	var (
+		parseRHS  ast.Expr
+		errMsg    string
+		needsCast bool
+		goType    string
+	)
+	if param.Value.Type.Permits(openapi3.TypeNumber) {
+		goType = "float64"
+		errMsg = fieldName + " is not a valid number"
+		parseRHS = &ast.CallExpr{
+			Fun:  Sel(I("strconv"), "ParseFloat"),
+			Args: []ast.Expr{I(varName), intLit("64")},
+		}
+	} else {
+		goType = g.GetIntegerType(param.Value.Format)
+		errMsg = fieldName + " is not a valid integer"
+		parseRHS, needsCast = numericIntParseCall(goType, varName)
+	}
+
+	result := []ast.Stmt{
+		&ast.AssignStmt{
+			Lhs: []ast.Expr{I("parsed" + fieldName), I("err")},
+			Tok: token.DEFINE,
+			Rhs: []ast.Expr{parseRHS},
+		},
+		&ast.IfStmt{
+			Cond: Ne(I("err"), I("nil")),
+			Body: &ast.BlockStmt{List: []ast.Stmt{Ret2(
+				I("nil"),
+				&ast.CallExpr{
+					Fun:  Sel(I("errors"), "Wrap"),
+					Args: []ast.Expr{I("err"), Str(errMsg)},
+				},
+			)}},
+		},
+	}
+
+	valueExpr := ast.Expr(I("parsed" + fieldName))
+	if needsCast {
+		valueExpr = &ast.CallExpr{Fun: I(goType), Args: []ast.Expr{I("parsed" + fieldName)}}
+	}
+
+	if required && !g.HandlersFile.requiredFieldsArePointers {
+		return append(result, &ast.AssignStmt{
+			Lhs: []ast.Expr{Sel(I(paramsName), fieldName)},
+			Tok: token.ASSIGN,
+			Rhs: []ast.Expr{valueExpr},
+		})
+	}
+
+	if needsCast {
+		result = append(result, &ast.AssignStmt{
+			Lhs: []ast.Expr{I("converted" + fieldName)},
+			Tok: token.DEFINE,
+			Rhs: []ast.Expr{valueExpr},
+		})
+		valueExpr = I("converted" + fieldName)
+	}
+	return append(result, &ast.AssignStmt{
+		Lhs: []ast.Expr{Sel(I(paramsName), fieldName)},
+		Tok: token.ASSIGN,
+		Rhs: []ast.Expr{Amp(valueExpr)},
+	})
+}
+
+func numericIntParseCall(goType, varName string) (ast.Expr, bool) {
+	if goType == "int" {
+		return &ast.CallExpr{
+			Fun:  Sel(I("strconv"), "Atoi"),
+			Args: []ast.Expr{I(varName)},
+		}, false
+	}
+	bits := strings.TrimPrefix(strings.TrimPrefix(goType, "u"), "int")
+	parseFn := "ParseInt"
+	if strings.HasPrefix(goType, "uint") {
+		parseFn = "ParseUint"
+	}
+	return &ast.CallExpr{
+		Fun:  Sel(I("strconv"), parseFn),
+		Args: []ast.Expr{I(varName), intLit("10"), intLit(bits)},
+	}, goType != "int64" && goType != "uint64"
+}
+
+func intLit(value string) *ast.BasicLit {
+	return &ast.BasicLit{Kind: token.INT, Value: value}
+}
+
 func (g *Generator) AddParseHeadersMethod(baseName string, params openapi3.Parameters) error {
 	bodyList := []ast.Stmt{
 		&ast.DeclStmt{
@@ -186,6 +296,7 @@ func (g *Generator) AddParseHeadersMethod(baseName string, params openapi3.Param
 			},
 		},
 	}
+	errDefinedAtFuncScope := false
 	for _, param := range params {
 		if param.Value.Schema == nil || param.Value.Schema.Value == nil {
 			continue
@@ -224,30 +335,32 @@ func (g *Generator) AddParseHeadersMethod(baseName string, params openapi3.Param
 				},
 			})
 			g.AddHandlersImport("github.com/go-faster/errors")
-			switch {
-			case param.Value.Schema.Value.Type.Permits("string"):
-				bodyList = append(bodyList,
-					g.AssignStringField("headers", varName, FormatGoLikeIdentifier(param.Value.Name),
-						param.Value.Schema, param.Value.Required,
-					)...,
-				)
-			default:
-				return errors.New("unsupported path parameter type: " + fmt.Sprint(param.Value.Schema.Value.Type))
+			stmts, definesErr, err := g.assignParamField("headers", varName, FormatGoLikeIdentifier(param.Value.Name), param.Value.Schema, true)
+			if err != nil {
+				return err
+			}
+			bodyList = append(bodyList, stmts...)
+			if definesErr {
+				errDefinedAtFuncScope = true
 			}
 		} else {
+			stmts, _, err := g.assignParamField("headers", varName, FormatGoLikeIdentifier(param.Value.Name), param.Value.Schema, false)
+			if err != nil {
+				return err
+			}
 			bodyList = append(bodyList, &ast.IfStmt{
 				Cond: Ne(I(varName), Str("")),
-				Body: &ast.BlockStmt{
-					List: g.AssignStringField("headers", varName, FormatGoLikeIdentifier(param.Value.Name),
-						param.Value.Schema, param.Value.Required,
-					),
-				},
+				Body: &ast.BlockStmt{List: stmts},
 			})
 		}
 	}
+	validatorTok := token.DEFINE
+	if errDefinedAtFuncScope {
+		validatorTok = token.ASSIGN
+	}
 	bodyList = append(bodyList, &ast.AssignStmt{
 		Lhs: []ast.Expr{I("err")},
-		Tok: token.DEFINE,
+		Tok: validatorTok,
 		Rhs: []ast.Expr{
 			&ast.CallExpr{
 				Fun: Sel(Sel(I("h"), "validator"), "Struct"),
