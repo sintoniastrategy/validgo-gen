@@ -25,6 +25,7 @@ validgo-gen generates **two-layer validation**:
 | **Idiomatic Go types** | `*string` for optionals, `decimal.Decimal` for decimals, `time.Time` for dates |
 | **go-playground/validator** | Standard validation library — same tags you already use |
 | **Go AST generation** | Code built as `go/ast` nodes, formatted via `go/format` — always valid, always `gofmt` |
+| **Route groups** | `x-route-group` extension — per-operation middleware groups (rate limits, auth) without splitting spec files |
 
 ## Quick start
 
@@ -96,6 +97,36 @@ api.NewHandler(impl, api.WithErrorHandler(func(w http.ResponseWriter, r *http.Re
     })
 }))
 ```
+
+## Route groups (`x-route-group`)
+
+A generated handler binds all of a spec file's operations to the one router passed to
+`AddRoutes`, so operations needing different middleware (a stricter rate limit, session
+auth) used to force a separate spec file — and with it a separate generated package,
+handler, and wiring. The `x-route-group` operation extension removes that constraint:
+
+```yaml
+paths:
+  /auth/login:
+    post:
+      operationId: login          # no group — registered by AddRoutes
+  /auth/mfa/verify:
+    post:
+      operationId: mfa_verify
+      x-route-group: mfa          # registered by AddMfaRoutes
+```
+
+Each distinct group value gets its own generated `Add<Group>Routes(router chi.Router)`
+method (the value is converted to a Go identifier: `verify_email` → `VerifyEmail`);
+ungrouped operations stay in `AddRoutes`. The consumer mounts each group with its own
+middleware chain, keeping one spec file, one package, one handler:
+
+```go
+h.AddRoutes(r.With(loginRateLimiter))
+h.AddMfaRoutes(r.With(mfaRateLimiter))
+```
+
+The value must be a non-empty string; generation fails otherwise.
 
 ## Documentation
 

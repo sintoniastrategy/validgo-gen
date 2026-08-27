@@ -132,8 +132,29 @@ paths:
         '404':
           description: Not found
 
+  /ping/grouped:
+    get:
+      operationId: grouped_ping
+      summary: Registered by AddPingerRoutes, not AddRoutes
+      x-route-group: pinger
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PingResponse'
+
 components:
   schemas:
+    PingResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
     NewResourseResponse:
       type: object
       properties:

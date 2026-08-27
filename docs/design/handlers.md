@@ -33,8 +33,31 @@ func NewHandler(createHandler CreateHandler, /* ... */) *Handler {
 ```go
 func (h *Handler) AddRoutes(router chi.Router) {
     router.Post("/path/to/{param}/resource{suffix}", h.handleCreate)
-    // ... one line per operation
+    // ... one line per ungrouped operation
 }
+```
+
+Operations carrying the `x-route-group` extension are registered by a separate
+generated method per group value instead of `AddRoutes`:
+
+```yaml
+# in the spec
+x-route-group: mfa
+```
+
+```go
+func (h *Handler) AddMfaRoutes(router chi.Router) {
+    router.Post("/auth/mfa/verify", h.handleMfaVerify)
+}
+```
+
+The group value is converted to a Go identifier (`verify_email` → `VerifyEmail`)
+and must be a non-empty string. This lets one spec file serve mounts with
+different middleware — each group is mounted on its own router:
+
+```go
+handler.AddRoutes(r.With(loginRateLimiter))
+handler.AddMfaRoutes(r.With(mfaRateLimiter))
 ```
 
 ## Per-operation generated methods

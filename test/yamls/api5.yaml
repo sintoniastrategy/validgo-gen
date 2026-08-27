@@ -1,0 +1,78 @@
+openapi: 3.0.0
+info:
+  title: Sample API with route groups
+  version: 1.0.0
+
+paths:
+  /auth/login:
+    post:
+      operationId: login
+      summary: Ungrouped operation, registered by AddRoutes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  minLength: 1
+              required:
+                - username
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+
+  /auth/mfa/challenge:
+    post:
+      operationId: mfa_challenge
+      summary: Grouped operation, registered by AddMfaRoutes
+      x-route-group: mfa
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+
+  /auth/mfa/verify:
+    post:
+      operationId: mfa_verify
+      summary: Grouped operation, registered by AddMfaRoutes
+      x-route-group: mfa
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+
+  /me/email/verify-by-code:
+    post:
+      operationId: verify_email_by_code
+      summary: Second group, registered by AddVerifyEmailRoutes
+      x-route-group: verify_email
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+
+components:
+  schemas:
+    TokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+      required:
+        - token
