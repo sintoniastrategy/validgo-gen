@@ -1132,3 +1132,135 @@ paths:
 		})
 	}
 }
+
+func TestGenerateRouteGroups(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		input string
+	}{
+		{
+			name: "grouped_and_ungrouped",
+			input: `openapi: 3.0.0
+info:
+  title: API
+  version: 1.0.0
+paths:
+  /auth/login:
+    post:
+      operationId: login
+      responses:
+        '200':
+          description: OK
+  /auth/mfa/challenge:
+    post:
+      operationId: mfa_challenge
+      x-route-group: mfa
+      responses:
+        '200':
+          description: OK
+  /auth/mfa/verify:
+    post:
+      operationId: mfa_verify
+      x-route-group: mfa
+      responses:
+        '200':
+          description: OK
+  /me/email/verify-by-code:
+    post:
+      operationId: verify_email_by_code
+      x-route-group: verify_email
+      responses:
+        '200':
+          description: OK
+`,
+		},
+		{
+			name: "all_routes_grouped",
+			input: `openapi: 3.0.0
+info:
+  title: API
+  version: 1.0.0
+paths:
+  /auth/mfa/verify:
+    post:
+      operationId: mfa_verify
+      x-route-group: mfa
+      responses:
+        '200':
+          description: OK
+`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			input := strings.NewReader(tc.input)
+			outputModels := &bytes.Buffer{}
+			outputHandlers := &bytes.Buffer{}
+			gen := generator.NewGenerator(&options.Options{
+				PackagePrefix: "packagename",
+			})
+			gen.PackageName = "packagename"
+			gen.ImportPrefix = "imports"
+			gen.ModelsImportPath = "packagename/imports/models"
+			err := gen.PrepareAndRead(input)
+			assert.NoError(t, err)
+			err = gen.GenerateFiles()
+			assert.NoError(t, err)
+			err = gen.WriteToOutput(outputModels, outputHandlers)
+			assert.NoError(t, err)
+
+			g := goldie.New(t,
+				goldie.WithFixtureDir("testdata/golden"),
+				goldie.WithNameSuffix(""),
+			)
+			caseName := strings.ReplaceAll(t.Name(), "/", "_")
+			g.Assert(t, caseName+"_models.go", outputModels.Bytes())
+			g.Assert(t, caseName+"_handlers.go", outputHandlers.Bytes())
+		})
+	}
+}
+
+func TestGenerateRouteGroupInvalid(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		value string
+	}{
+		{name: "empty_string", value: `""`},
+		{name: "not_a_string", value: `42`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			input := strings.NewReader(`openapi: 3.0.0
+info:
+  title: API
+  version: 1.0.0
+paths:
+  /auth/login:
+    post:
+      operationId: login
+      x-route-group: ` + tc.value + `
+      responses:
+        '200':
+          description: OK
+`)
+			gen := generator.NewGenerator(&options.Options{
+				PackagePrefix: "packagename",
+			})
+			gen.PackageName = "packagename"
+			gen.ImportPrefix = "imports"
+			gen.ModelsImportPath = "packagename/imports/models"
+			err := gen.PrepareAndRead(input)
+			assert.NoError(t, err)
+
+			// ProcessPaths errors surface as a panic (generator.Gen wraps and
+			// panics), so the refusal is asserted through recover.
+			defer func() {
+				r := recover()
+				if assert.NotNil(t, r, "invalid x-route-group must refuse generation") {
+					err, ok := r.(error)
+					assert.True(t, ok)
+					assert.ErrorContains(t, err, "x-route-group must be a non-empty string")
+				}
+			}()
+			_ = gen.GenerateFiles()
+		})
+	}
+}

@@ -9,6 +9,31 @@ import (
 
 const applicationJSONCT = "application/json"
 
+// routeGroupExtension assigns an operation to a named route group: grouped
+// operations are registered by a generated Add<Group>Routes method instead of
+// AddRoutes, so one spec file can serve mounts with different middleware (rate
+// limits, auth) without being split per budget.
+const routeGroupExtension = "x-route-group"
+
+func routeGroupOf(operation *openapi3.Operation) (string, error) {
+	raw, ok := operation.Extensions[routeGroupExtension]
+	if !ok {
+		return "", nil
+	}
+
+	name, ok := raw.(string)
+	if !ok || name == "" {
+		return "", errors.Errorf("%s must be a non-empty string", routeGroupExtension)
+	}
+
+	group := FormatGoLikeIdentifier(name)
+	if group == "" {
+		return "", errors.Errorf("%s value %q does not form a Go identifier", routeGroupExtension, name)
+	}
+
+	return group, nil
+}
+
 func (g *Generator) AddInterface(baseName string) {
 	interfaceName := baseName + "Handler"
 	methodName := "Handle" + baseName
@@ -21,8 +46,8 @@ func (g *Generator) AddDependencyToHandler(baseName string) {
 	g.AddDependencyToHandlers(baseName)
 }
 
-func (g *Generator) AddRoute(baseName string, method string, pathName string) {
-	g.AddRouteToRouter(baseName, method, pathName)
+func (g *Generator) AddRoute(baseName string, method string, pathName string, group string) {
+	g.AddRouteToRouter(baseName, method, pathName, group)
 }
 
 func (g *Generator) AddContentTypeToHandler(baseName string, rawContentType string) {
@@ -245,10 +270,15 @@ func (g *Generator) ProcessApplicationJSONOperation(pathName string, method stri
 		handlerBaseName = FormatGoLikeIdentifier(operation.OperationID)
 	}
 
+	group, err := routeGroupOf(operation)
+	if err != nil {
+		return errors.Wrap(err, op)
+	}
+
 	g.AddInterface(handlerBaseName)
 	g.AddDependencyToHandler(handlerBaseName)
-	g.AddRoute(handlerBaseName, method, pathName)
-	err := g.AddParseParamsMethods(handlerBaseName, contentType, operation)
+	g.AddRoute(handlerBaseName, method, pathName, group)
+	err = g.AddParseParamsMethods(handlerBaseName, contentType, operation)
 	if err != nil {
 		return errors.Wrap(err, op)
 	}

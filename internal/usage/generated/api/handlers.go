@@ -17,17 +17,21 @@ import (
 	"github.com/sintoniastrategy/validgo-gen/internal/usage/generated/def"
 )
 
+type GroupedPingHandler interface {
+	HandleGroupedPing(ctx context.Context, r apimodels.GroupedPingRequest) (*apimodels.GroupedPingResponse, error)
+}
 type CreateHandler interface {
 	HandleCreate(ctx context.Context, r apimodels.CreateRequest) (*apimodels.CreateResponse, error)
 }
 type Handler struct {
 	validator    *validator.Validate
+	groupedPing  GroupedPingHandler
 	create       CreateHandler
 	errorHandler ErrorHandler
 }
 
-func NewHandler(create CreateHandler, opts ...Option) *Handler {
-	h := &Handler{validator: validator.New(validator.WithRequiredStructEnabled()), create: create, errorHandler: DefaultErrorHandler}
+func NewHandler(groupedPing GroupedPingHandler, create CreateHandler, opts ...Option) *Handler {
+	h := &Handler{validator: validator.New(validator.WithRequiredStructEnabled()), groupedPing: groupedPing, create: create, errorHandler: DefaultErrorHandler}
 	for _, opt := range opts {
 		opt(h)
 	}
@@ -35,6 +39,55 @@ func NewHandler(create CreateHandler, opts ...Option) *Handler {
 }
 func (h *Handler) AddRoutes(router chi.Router) {
 	router.Post("/path/to/{param}/resours{suffix}", h.handleCreate)
+}
+func (h *Handler) AddPingerRoutes(router chi.Router) {
+	router.Get("/ping/grouped", h.handleGroupedPing)
+}
+func (h *Handler) parseGroupedPingRequest(r *http.Request) (*apimodels.GroupedPingRequest, error) {
+	return &apimodels.GroupedPingRequest{}, nil
+}
+func GroupedPing200(body apimodels.PingResponse) *apimodels.GroupedPingResponse {
+	return &apimodels.GroupedPingResponse{StatusCode: 200, Response200: &apimodels.GroupedPingResponse200{Body: body}}
+}
+func (h *Handler) writeGroupedPing200Response(w http.ResponseWriter, r *http.Request, resp *apimodels.GroupedPingResponse200) {
+	var err error
+	err = json.NewEncoder(w).Encode(resp.Body)
+	if err != nil {
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
+		return
+	}
+}
+func (h *Handler) writeGroupedPingResponse(w http.ResponseWriter, r *http.Request, response *apimodels.GroupedPingResponse) {
+	switch response.StatusCode {
+	case 200:
+		if response.Response200 == nil {
+			h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
+			return
+		}
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(response.StatusCode)
+		h.writeGroupedPing200Response(w, r, response.Response200)
+		return
+	}
+	h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
+}
+func (h *Handler) handleGroupedPingRequest(w http.ResponseWriter, r *http.Request) {
+	request, err := h.parseGroupedPingRequest(r)
+	if err != nil {
+		h.errorHandler(w, r, http.StatusBadRequest, err.Error())
+		return
+	}
+	ctx := r.Context()
+	response, err := h.groupedPing.HandleGroupedPing(ctx, *request)
+	if err != nil || response == nil {
+		h.errorHandler(w, r, http.StatusInternalServerError, "Internal Server Error")
+		return
+	}
+	h.writeGroupedPingResponse(w, r, response)
+	return
+}
+func (h *Handler) handleGroupedPing(w http.ResponseWriter, r *http.Request) {
+	h.handleGroupedPingRequest(w, r)
 }
 func (h *Handler) parseCreatePathParams(r *http.Request) (*apimodels.CreatePathParams, error) {
 	var pathParams apimodels.CreatePathParams
@@ -514,6 +567,27 @@ func ValidateComplexObjectForDiveJSON(jsonData json.RawMessage) error {
 }
 func ValidateNewResourseResponseJSON(jsonData json.RawMessage) error {
 	requiredFields := map[string]bool{"count": true, "name": true, "param": true}
+	nullableFields := map[string]bool{}
+	var obj map[string]json.RawMessage
+	err := json.Unmarshal(jsonData, &obj)
+	if err != nil {
+		return err
+	}
+	var val json.RawMessage
+	var exists bool
+	for field := range requiredFields {
+		val, exists = obj[field]
+		if !exists {
+			return errors.New("field " + field + " is required")
+		}
+		if !nullableFields[field] && containsNull(val) {
+			return errors.New("field " + field + " cannot be null")
+		}
+	}
+	return nil
+}
+func ValidatePingResponseJSON(jsonData json.RawMessage) error {
+	requiredFields := map[string]bool{"message": true}
 	nullableFields := map[string]bool{}
 	var obj map[string]json.RawMessage
 	err := json.Unmarshal(jsonData, &obj)

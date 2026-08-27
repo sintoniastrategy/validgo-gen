@@ -17,6 +17,12 @@ import (
 
 type mockHandler struct{}
 
+func (m *mockHandler) HandleGroupedPing(
+	ctx context.Context, _ apimodels.GroupedPingRequest,
+) (*apimodels.GroupedPingResponse, error) {
+	return api.GroupedPing200(apimodels.PingResponse{Message: "pong"}), nil
+}
+
 func (m *mockHandler) HandleCreate(ctx context.Context, r apimodels.CreateRequest) (*apimodels.CreateResponse, error) {
 	if r.Body.CodeForResponse != nil {
 		switch *r.Body.CodeForResponse {
@@ -56,6 +62,7 @@ func (m *mockHandler) HandleCreate(ctx context.Context, r apimodels.CreateReques
 func TestHandler(t *testing.T) {
 	router := chi.NewRouter()
 	handler := api.NewHandler(
+		&mockHandler{},
 		&mockHandler{},
 	)
 	handler.AddRoutes(router)
@@ -399,6 +406,12 @@ func TestHandler(t *testing.T) {
 
 type mockHandler500 struct{}
 
+func (m *mockHandler500) HandleGroupedPing(
+	ctx context.Context, _ apimodels.GroupedPingRequest,
+) (*apimodels.GroupedPingResponse, error) {
+	return api.GroupedPing200(apimodels.PingResponse{Message: "pong"}), nil
+}
+
 func (m *mockHandler500) HandleCreate(ctx context.Context, r apimodels.CreateRequest) (*apimodels.CreateResponse, error) {
 	return &apimodels.CreateResponse{
 		StatusCode:  http.StatusOK,
@@ -412,6 +425,7 @@ func (m *mockHandler500) HandleCreate(ctx context.Context, r apimodels.CreateReq
 func Test500(t *testing.T) {
 	router := chi.NewRouter()
 	handler := api.NewHandler(
+		&mockHandler500{},
 		&mockHandler500{},
 	)
 	handler.AddRoutes(router)
@@ -453,7 +467,7 @@ func TestWithErrorHandler(t *testing.T) {
 	}
 
 	router := chi.NewRouter()
-	api.NewHandler(&mockHandler{}, api.WithErrorHandler(custom)).AddRoutes(router)
+	api.NewHandler(&mockHandler{}, &mockHandler{}, api.WithErrorHandler(custom)).AddRoutes(router)
 	server := httptest.NewServer(router)
 	defer server.Close()
 
@@ -484,7 +498,7 @@ func TestSetErrorHandler(t *testing.T) {
 		status int
 		msg    string
 	}
-	h := api.NewHandler(&mockHandler{})
+	h := api.NewHandler(&mockHandler{}, &mockHandler{})
 	h.SetErrorHandler(func(w http.ResponseWriter, r *http.Request, status int, msg string) {
 		captured.status = status
 		captured.msg = msg
@@ -520,14 +534,14 @@ func TestErrorHandlerAliasIsCrossPackage(t *testing.T) {
 	}
 	var _ api.ErrorHandler = eh
 
-	h := api.NewHandler(&mockHandler{})
+	h := api.NewHandler(&mockHandler{}, &mockHandler{})
 	h.SetErrorHandler(eh)
 	_ = h
 }
 
 func TestDefaultErrorEnvelope(t *testing.T) {
 	router := chi.NewRouter()
-	api.NewHandler(&mockHandler{}).AddRoutes(router)
+	api.NewHandler(&mockHandler{}, &mockHandler{}).AddRoutes(router)
 
 	server := httptest.NewServer(router)
 	defer server.Close()
@@ -571,7 +585,7 @@ func TestDefaultErrorEnvelope(t *testing.T) {
 
 	t.Run("500 handler returned nil response", func(t *testing.T) {
 		router500 := chi.NewRouter()
-		api.NewHandler(&mockHandler500{}).AddRoutes(router500)
+		api.NewHandler(&mockHandler500{}, &mockHandler500{}).AddRoutes(router500)
 		srv500 := httptest.NewServer(router500)
 		defer srv500.Close()
 
@@ -587,5 +601,62 @@ func TestDefaultErrorEnvelope(t *testing.T) {
 		resp, body := doRequest(t, req)
 		assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 		assert.Equal(t, "Internal Server Error", body["error"])
+	})
+}
+
+// TestRouteGroups covers x-route-group at runtime: a grouped operation is invisible
+// to AddRoutes and served only by its Add<Group>Routes method, whose mount carries
+// its own middleware.
+func TestRouteGroups(t *testing.T) {
+	t.Run("grouped route is not registered by AddRoutes", func(t *testing.T) {
+		router := chi.NewRouter()
+		api.NewHandler(&mockHandler{}, &mockHandler{}).AddRoutes(router)
+		server := httptest.NewServer(router)
+		defer server.Close()
+
+		resp, err := http.Get(server.URL + "/ping/grouped")
+		assert.NoError(t, err)
+		defer resp.Body.Close()
+		assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+	})
+
+	t.Run("group mount serves the route through its own middleware", func(t *testing.T) {
+		var middlewareRan bool
+		router := chi.NewRouter()
+		router.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				middlewareRan = true
+				next.ServeHTTP(w, r)
+			})
+		})
+		api.NewHandler(&mockHandler{}, &mockHandler{}).AddPingerRoutes(router)
+		server := httptest.NewServer(router)
+		defer server.Close()
+
+		resp, err := http.Get(server.URL + "/ping/grouped")
+		assert.NoError(t, err)
+		defer resp.Body.Close()
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.True(t, middlewareRan, "the group mount's middleware handles the grouped route")
+
+		var body map[string]any
+		assert.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
+		assert.Equal(t, "pong", body["message"])
+	})
+
+	t.Run("group mount does not register ungrouped routes", func(t *testing.T) {
+		router := chi.NewRouter()
+		api.NewHandler(&mockHandler{}, &mockHandler{}).AddPingerRoutes(router)
+		server := httptest.NewServer(router)
+		defer server.Close()
+
+		req, err := http.NewRequest(http.MethodPost, server.URL+"/path/to/param/resourse?count=3",
+			bytes.NewBufferString(`{}`))
+		assert.NoError(t, err)
+		resp, err := http.DefaultClient.Do(req)
+		assert.NoError(t, err)
+		defer resp.Body.Close()
+		assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 	})
 }

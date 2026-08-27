@@ -8,6 +8,15 @@ import (
 	"github.com/sintoniastrategy/validgo-gen/internal/usage/generated/def/defmodels"
 )
 
+type GroupedPingRequest struct {
+}
+type GroupedPingResponse200 struct {
+	Body PingResponse
+}
+type GroupedPingResponse struct {
+	StatusCode  int
+	Response200 *GroupedPingResponse200
+}
 type CreatePathParams struct {
 	Suffix string `json:"suffix" validate:"required,oneof=e es"`
 	Param  string `json:"param" validate:"required"`
@@ -117,4 +126,7 @@ type NewResourseResponse struct {
 	EnumVal      *string          `json:"enum-val,omitempty" validate:"omitempty"`
 	Name         string           `json:"name"`
 	Param        string           `json:"param"`
+}
+type PingResponse struct {
+	Message string `json:"message"`
 }

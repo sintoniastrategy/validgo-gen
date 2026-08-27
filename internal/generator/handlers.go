@@ -28,6 +28,8 @@ type HandlersFile struct {
 	handlerConstructorDeclQAConstructorComposite *ast.CompositeLit // quick access to handler struct initializer
 
 	addRoutesDecl         *ast.FuncDecl
+	groupRoutesDecls      map[string]*ast.FuncDecl
+	groupRoutesOrder      []string
 	handleDeclQASwitches  map[string]*ast.BlockStmt
 	restDecls             []*ast.FuncDecl
 	extraDecls            []ast.Decl
@@ -291,7 +293,7 @@ func (g *Generator) GenerateImportsSpecs(imp []string) ([]*ast.ImportSpec, []ast
 }
 
 func (g *Generator) GenerateHandlersFile() *ast.File {
-	if len(g.HandlersFile.addRoutesDecl.Body.List) > 0 {
+	if len(g.HandlersFile.addRoutesDecl.Body.List) > 0 || len(g.HandlersFile.groupRoutesOrder) > 0 {
 		g.FinalizeHandlerConstructor()
 		g.AddStandardErrorDecls()
 	}
@@ -317,6 +319,9 @@ func (g *Generator) GenerateHandlersFile() *ast.File {
 	file.Decls = append(file.Decls, g.HandlersFile.handlerDecl)
 	file.Decls = append(file.Decls, g.HandlersFile.handlerConstructorDecl)
 	file.Decls = append(file.Decls, g.HandlersFile.addRoutesDecl)
+	for _, group := range g.HandlersFile.groupRoutesOrder {
+		file.Decls = append(file.Decls, g.HandlersFile.groupRoutesDecls[group])
+	}
 	for _, d := range g.HandlersFile.restDecls {
 		file.Decls = append(file.Decls, d)
 	}
@@ -325,8 +330,13 @@ func (g *Generator) GenerateHandlersFile() *ast.File {
 	return file
 }
 
-func (g *Generator) AddRouteToRouter(baseName string, method string, pathName string) {
-	g.HandlersFile.addRoutesDecl.Body.List = append(g.HandlersFile.addRoutesDecl.Body.List, &ast.ExprStmt{
+func (g *Generator) AddRouteToRouter(baseName string, method string, pathName string, group string) {
+	target := g.HandlersFile.addRoutesDecl
+	if group != "" {
+		target = g.groupRoutesDecl(group)
+	}
+
+	target.Body.List = append(target.Body.List, &ast.ExprStmt{
 		X: &ast.CallExpr{
 			Fun: Sel(I("router"), method),
 			Args: []ast.Expr{
@@ -335,6 +345,30 @@ func (g *Generator) AddRouteToRouter(baseName string, method string, pathName st
 			},
 		},
 	})
+}
+
+// groupRoutesDecl returns the Add<Group>Routes declaration for an x-route-group
+// value, creating it on first use. Groups are emitted in first-seen order, which is
+// deterministic because paths are walked in matching order.
+func (g *Generator) groupRoutesDecl(group string) *ast.FuncDecl {
+	if g.HandlersFile.groupRoutesDecls == nil {
+		g.HandlersFile.groupRoutesDecls = map[string]*ast.FuncDecl{}
+	}
+
+	decl, ok := g.HandlersFile.groupRoutesDecls[group]
+	if !ok {
+		decl = Func(
+			"Add"+group+"Routes",
+			Field("h", Star(I("Handler")), ""),
+			FieldA(Field("router", Sel(I("chi"), "Router"), "")),
+			nil,
+			[]ast.Stmt{},
+		)
+		g.HandlersFile.groupRoutesDecls[group] = decl
+		g.HandlersFile.groupRoutesOrder = append(g.HandlersFile.groupRoutesOrder, group)
+	}
+
+	return decl
 }
 
 func (g *Generator) GetHandler(baseName string) *ast.BlockStmt {
